@@ -1,0 +1,2 @@
+# Templates directory - placeholder for Jinja2 templates
+# Most generators use inline template strings for simplicity

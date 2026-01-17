@@ -1,0 +1,23 @@
+[project]
+name = "geronimo"
+version = "0.1.0"
+description = "MLOps deployment platform - automate ML model deployments to AWS with Terraform, Docker, and CI/CD"
+readme = "README.md"
+authors = [
+    { name = "Chris Sweet", email = "chris.sweet0320@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "jinja2>=3.1.6",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
+    "rich>=14.2.0",
+    "typer[all]>=0.21.1",
+]
+
+[project.scripts]
+geronimo = "geronimo.cli.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

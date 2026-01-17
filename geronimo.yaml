@@ -1,0 +1,21 @@
+project:
+  name: batch-test
+  version: "1.0.0"
+
+batch:
+  enabled: true
+  backend: step-functions
+  step_functions:
+    s3_root: s3://my-bucket/metaflow
+    batch_queue: ml-training-queue
+  jobs:
+    - name: daily_training
+      flow_file: flows/training.py
+      schedule: "0 6 * * *"
+      cpu: 8
+      memory: 16384
+    - name: batch_inference
+      flow_file: flows/inference.py
+      schedule: "0 12 * * *"
+      cpu: 4
+      memory: 8192

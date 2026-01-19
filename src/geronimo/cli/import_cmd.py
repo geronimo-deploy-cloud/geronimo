@@ -122,8 +122,31 @@ def import_project(
         # Save configuration
         save_config(config, config_file)
 
+        # Generate SDK wrappers
+        console.print("\n[dim]Generating SDK wrappers...[/dim]")
+        from geronimo.analyzers.sdk_wrapper import SDKWrapperGenerator
+
+        wrapper_gen = SDKWrapperGenerator(project_path)
+        sdk_result = wrapper_gen.analyze()
+
+        # Create geronimo_sdk directory
+        sdk_dir = output_path / "geronimo_sdk"
+        sdk_dir.mkdir(exist_ok=True)
+
+        # Write generated files
+        (sdk_dir / "__init__.py").write_text('"""Geronimo SDK wrappers."""\n')
+        (sdk_dir / "features.py").write_text(sdk_result.feature_set_code)
+        (sdk_dir / "data_sources.py").write_text(sdk_result.data_sources_code)
+        (sdk_dir / "model.py").write_text(sdk_result.model_code)
+        (sdk_dir / "endpoint.py").write_text(sdk_result.endpoint_code)
+        (sdk_dir / "IMPORT_SUMMARY.md").write_text(wrapper_gen.generate_summary())
+
+        console.print(f"  ✓ Generated SDK wrappers in [cyan]geronimo_sdk/[/cyan]")
+        console.print(f"  ✓ {len(sdk_result.detected_patterns)} patterns detected")
+        console.print(f"  ✓ {len(sdk_result.todos)} TODO items created")
+
         # Display summary
-        _display_summary(config_file, result)
+        _display_summary(config_file, result, sdk_result)
 
     except FileNotFoundError as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
@@ -253,16 +276,28 @@ def _generate_config(scan, result, name_override: str | None) -> GeronimoConfig:
     )
 
 
-def _display_summary(config_file: Path, result) -> None:
+def _display_summary(config_file: Path, result, sdk_result=None) -> None:
     """Display import summary."""
+    sdk_info = ""
+    if sdk_result:
+        high_todos = len([t for t in sdk_result.todos if t.priority.value == "HIGH"])
+        sdk_info = (
+            f"\nSDK wrappers: [cyan]geronimo_sdk/[/cyan]\n"
+            f"Patterns detected: {len(sdk_result.detected_patterns)}\n"
+            f"TODO items: {len(sdk_result.todos)} ({high_todos} HIGH priority)\n"
+        )
+
     console.print(
         Panel.fit(
             f"[bold green]✓ Configuration generated![/bold green]\n\n"
-            f"Config file: [cyan]{config_file}[/cyan]\n\n"
+            f"Config file: [cyan]{config_file}[/cyan]\n"
+            f"{sdk_info}\n"
             f"Next steps:\n"
-            f"  1. Review and edit [cyan]geronimo.yaml[/cyan]\n"
-            f"  2. Run [cyan]geronimo validate[/cyan]\n"
-            f"  3. Run [cyan]geronimo generate all[/cyan]",
+            f"  1. Review [cyan]geronimo_sdk/IMPORT_SUMMARY.md[/cyan] for TODOs\n"
+            f"  2. Customize [cyan]geronimo_sdk/[/cyan] files\n"
+            f"  3. Run [cyan]geronimo validate[/cyan]\n"
+            f"  4. Run [cyan]geronimo generate all[/cyan]",
             border_style="green",
         )
     )
+

@@ -34,6 +34,7 @@ class ProjectGenerator(BaseGenerator):
         project_name: str,
         framework: str = "sklearn",
         output_dir: str = ".",
+        template: str = "realtime",
     ) -> None:
         """Initialize the project generator.
 
@@ -41,12 +42,14 @@ class ProjectGenerator(BaseGenerator):
             project_name: Name of the project.
             framework: ML framework to use.
             output_dir: Directory to create the project in.
+            template: Project template (realtime, batch, or both).
         """
         super().__init__()
         self.project_name = project_name.lower().replace(" ", "-")
         self.framework = MLFramework(framework.lower())
         self.output_dir = Path(output_dir)
         self.project_dir = self.output_dir / self.project_name
+        self.template = template
 
     def _get_framework_dependencies(self) -> list[str]:
         """Get framework-specific dependencies."""
@@ -58,6 +61,38 @@ class ProjectGenerator(BaseGenerator):
             MLFramework.CUSTOM: [],
         }
         return deps.get(self.framework, [])
+
+    def _get_template_dependencies(self) -> list[str]:
+        """Get template-specific dependencies."""
+        # Core deps for all templates
+        core = [
+            "geronimo",
+            "pydantic>=2.5.0",
+            "numpy>=1.24.0",
+            "pandas>=2.0.0",
+            "boto3>=1.34.0",
+        ]
+
+        # Template-specific deps
+        if self.template == "realtime":
+            template_deps = [
+                "fastapi>=0.109.0",
+                "uvicorn[standard]>=0.27.0",
+                "mcp>=0.1.0",
+            ]
+        elif self.template == "batch":
+            template_deps = []
+        else:  # both
+            template_deps = [
+                "fastapi>=0.109.0",
+                "uvicorn[standard]>=0.27.0",
+                "mcp>=0.1.0",
+            ]
+
+        # Framework-specific deps
+        framework_deps = self._get_framework_dependencies()
+
+        return core + template_deps + framework_deps
 
     def _create_config(self) -> GeronimoConfig:
         """Create the default configuration for this project."""
@@ -380,36 +415,41 @@ async def readiness_check() -> dict[str, str]:
 '''
 
     def _generate_predict_route(self, context: dict) -> str:
-        """Generate the prediction route."""
-        return f'''"""Prediction endpoints."""
+        """Generate the prediction route using SDK Endpoint."""
+        return f'''"""Prediction endpoints using Geronimo SDK Endpoint."""
 
 import time
 import logging
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 
-from {context["project_name_snake"]}.api.models.schemas import (
-    PredictionRequest,
-    PredictionResponse,
-)
-from {context["project_name_snake"]}.api.deps import get_predictor
-from {context["project_name_snake"]}.ml.predictor import ModelPredictor
+from {context["project_name_snake"]}.sdk.endpoint import PredictEndpoint
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Initialize SDK endpoint
+_endpoint = None
 
-@router.post("/predict", response_model=PredictionResponse)
-async def predict(
-    request: PredictionRequest,
-    predictor: ModelPredictor = Depends(get_predictor),
-) -> PredictionResponse:
-    """Generate predictions for the input features.
+
+def get_endpoint() -> PredictEndpoint:
+    """Get or initialize the SDK endpoint."""
+    global _endpoint
+    if _endpoint is None:
+        _endpoint = PredictEndpoint()
+        _endpoint.initialize()
+        logger.info("SDK Endpoint initialized")
+    return _endpoint
+
+
+@router.post("/predict")
+async def predict(request: dict[str, Any]) -> dict[str, Any]:
+    """Generate predictions using the SDK Endpoint.
 
     Args:
         request: Input features for prediction.
-        predictor: The loaded model predictor (injected).
 
     Returns:
         Model predictions with metadata.
@@ -417,17 +457,22 @@ async def predict(
     start_time = time.perf_counter()
 
     try:
-        prediction = predictor.predict(request.features)
+        endpoint = get_endpoint()
+        result = endpoint.handle(request)
 
         latency_ms = (time.perf_counter() - start_time) * 1000
         logger.info(f"Prediction completed in {{latency_ms:.2f}}ms")
 
-        return PredictionResponse(
-            prediction=prediction,
-            model_version=predictor.version,
-            latency_ms=latency_ms,
-        )
+        return {{
+            **result,
+            "latency_ms": latency_ms,
+        }}
 
+    except NotImplementedError as e:
+        raise HTTPException(
+            status_code=501, 
+            detail=f"Endpoint not implemented: {{e}}"
+        )
     except Exception as e:
         logger.error(f"Prediction failed: {{e}}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -681,6 +726,10 @@ def test_predict(client: TestClient):
             "project_name_snake": self.project_name.replace("-", "_"),
         }
 
+        # Template-specific dependencies
+        deps = self._get_template_dependencies()
+        deps_str = ",\n    ".join(f'"{d}"' for d in deps)
+
         # pyproject.toml
         pyproject = f'''[project]
 name = "{context["project_name"]}"
@@ -689,16 +738,7 @@ description = "ML model serving API"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
-    "pydantic>=2.5.0",
-    "numpy>=1.24.0",
-    "pandas>=2.0.0",
-    "scikit-learn>=1.3.0",
-    "joblib>=1.3.0",
-    "boto3>=1.34.0",
-    "evidently>=0.4.0",
-    "mcp>=0.1.0",
+    {deps_str},
 ]
 
 [project.optional-dependencies]
@@ -713,6 +753,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 '''
         self.write_file(self.project_dir / "pyproject.toml", pyproject)
+
+        # Generate training script
+        self._generate_training_script(context)
 
         # README.md
         readme = f'''# {context["project_name"]}
@@ -803,3 +846,75 @@ models/*.h5
 !models/.gitkeep
 '''
         self.write_file(self.project_dir / ".gitignore", gitignore)
+
+    def _generate_training_script(self, context: dict) -> None:
+        """Generate training script template."""
+        pkg_dir = self.project_dir / "src" / context["project_name_snake"]
+
+        train_script = f'''"""Training script for {context["project_name"]}.
+
+Usage:
+    uv run python -m {context["project_name_snake"]}.train
+"""
+
+from pathlib import Path
+
+import pandas as pd
+
+from geronimo.artifacts import ArtifactStore
+from geronimo.models import HyperParams
+from {context["project_name_snake"]}.sdk.model import ProjectModel
+
+
+def main():
+    """Train and save the model."""
+    print("=" * 50)
+    print("Model Training")
+    print("=" * 50)
+
+    # TODO: Load your training data
+    # from {context["project_name_snake"]}.sdk.data_sources import training_data
+    # df = training_data.load()
+    print("\\n1. Loading data...")
+    # df = pd.read_csv("data/train.csv")
+    raise NotImplementedError("Load your training data here")
+
+    # TODO: Prepare target variable
+    # y = df.pop("target")
+
+    # Initialize model
+    print("\\n2. Initializing model...")
+    model = ProjectModel()
+
+    # Fit features
+    print("   Fitting feature transformers...")
+    model.features.fit(df)
+    X = model.features.transform(df)
+
+    # Train
+    print("\\n3. Training...")
+    params = HyperParams(n_estimators=100, max_depth=5)
+    model.train(X, y, params)
+
+    # Save
+    print("\\n4. Saving artifacts...")
+    models_dir = Path(__file__).parent.parent.parent / "models"
+    store = ArtifactStore(
+        project="{context["project_name"]}",
+        version="1.0.0",
+        backend="local",
+        base_path=str(models_dir),
+    )
+    model.save(store)
+    print(f"   Saved to {{models_dir}}")
+
+    print("\\n" + "=" * 50)
+    print("Training complete!")
+    print("=" * 50)
+
+
+if __name__ == "__main__":
+    main()
+'''
+        self.write_file(pkg_dir / "train.py", train_script)
+

@@ -86,6 +86,15 @@ class FeatureSet:
             if feature.drop:
                 continue
 
+            # For derived features, compute value first if needed
+            if feature.has_derived_fn:
+                # Custom functions don't need fitting, but transformers on derived do
+                derived_values = feature.apply(df)
+                if feature.has_transformer:
+                    feature.transformer.fit(derived_values.values.reshape(-1, 1))
+                continue
+
+            # Standard features
             col_name = feature.source_column
             if col_name not in df.columns:
                 continue
@@ -120,6 +129,19 @@ class FeatureSet:
             if feature.drop:
                 continue
 
+            # Handle derived features with custom functions
+            if feature.has_derived_fn:
+                derived_values = feature.apply(df)
+                if feature.has_transformer:
+                    transformed = feature.transformer.transform(
+                        derived_values.values.reshape(-1, 1)
+                    )
+                    result[feature.name] = transformed.flatten()
+                else:
+                    result[feature.name] = derived_values.values
+                continue
+
+            # Standard features
             col_name = feature.source_column
             if col_name not in df.columns:
                 continue

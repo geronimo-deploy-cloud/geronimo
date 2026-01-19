@@ -74,6 +74,12 @@ def init(
         "-f",
         help="ML framework (sklearn, pytorch, tensorflow).",
     ),
+    template: str = typer.Option(
+        "realtime",
+        "--template",
+        "-t",
+        help="Project type: 'realtime' (API endpoints), 'batch' (pipelines), or 'both'.",
+    ),
     output_dir: str = typer.Option(
         ".",
         "--output",
@@ -83,39 +89,179 @@ def init(
 ) -> None:
     """Initialize a new ML deployment project.
 
-    Scaffolds a complete FastAPI-based ML serving project with:
-    - Project configuration (geronimo.yaml)
-    - FastAPI application structure
-    - Terraform infrastructure
-    - Dockerfile
-    - CI/CD pipeline
+    Scaffolds a complete ML project with Geronimo SDK:
+
+    Templates:
+    - realtime: FastAPI endpoints with Endpoint class
+    - batch: Metaflow pipelines with BatchPipeline class
+    - both: Combined real-time and batch support
     """
     from geronimo.generators.project import ProjectGenerator
 
+    # Validate template
+    valid_templates = {"realtime", "batch", "both"}
+    if template not in valid_templates:
+        console.print(f"[bold red]Error:[/bold red] Invalid template '{template}'. Choose from: {valid_templates}")
+        raise typer.Exit(code=1)
+
     console.print(f"\n[bold blue]Initializing project:[/bold blue] {name}")
+    console.print(f"  Template: [cyan]{template}[/cyan]")
 
     generator = ProjectGenerator(
         project_name=name,
         framework=framework,
         output_dir=output_dir,
+        template=template,
     )
 
     try:
         generator.generate()
+
+        # Generate SDK scaffolding
+        _generate_sdk_scaffold(name, output_dir, template)
+
+        next_steps = [
+            f"cd {name}",
+            "uv sync",
+        ]
+        if template in ("realtime", "both"):
+            next_steps.append("uv run start  # Run API server")
+        if template in ("batch", "both"):
+            next_steps.append("python batch/flows/*.py run  # Run batch pipeline")
+
         console.print(
             Panel.fit(
                 f"[bold green]✓ Project '{name}' created successfully![/bold green]\n\n"
-                f"Next steps:\n"
-                f"  1. cd {name}\n"
-                f"  2. Edit [cyan]geronimo.yaml[/cyan] to configure your deployment\n"
-                f"  3. Add your model to [cyan]models/[/cyan]\n"
-                f"  4. Run [cyan]geronimo generate terraform[/cyan]",
+                f"Template: [cyan]{template}[/cyan]\n\n"
+                f"Next steps:\n" + "\n".join(f"  {i+1}. {step}" for i, step in enumerate(next_steps)),
                 border_style="green",
             )
         )
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise typer.Exit(code=1)
+
+
+def _generate_sdk_scaffold(name: str, output_dir: str, template: str) -> None:
+    """Generate Geronimo SDK scaffold files."""
+    from pathlib import Path
+
+    project_path = Path(output_dir) / name
+    sdk_dir = project_path / "src" / name.replace("-", "_") / "sdk"
+    sdk_dir.mkdir(parents=True, exist_ok=True)
+
+    # SDK __init__.py
+    (sdk_dir / "__init__.py").write_text('"""Geronimo SDK components."""\n')
+
+    # Features file
+    (sdk_dir / "features.py").write_text('''"""Feature definitions for the model."""
+
+from geronimo.features import FeatureSet, Feature
+# from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+
+class ProjectFeatures(FeatureSet):
+    """Define your features here.
+
+    Example:
+        age = Feature(dtype='numeric', transformer=StandardScaler())
+        category = Feature(dtype='categorical', encoder=OneHotEncoder())
+    """
+
+    pass
+''')
+
+    # Data sources file
+    (sdk_dir / "data_sources.py").write_text('''"""Data source definitions."""
+
+from geronimo.data import DataSource, Query
+
+# Example query-based source:
+# training_data = DataSource(
+#     name="training",
+#     source="snowflake",
+#     query=Query.from_file("queries/train.sql"),
+# )
+
+# Example file-based source:
+# local_data = DataSource(name="local", source="file", path="data/train.csv")
+''')
+
+    # Model file
+    (sdk_dir / "model.py").write_text(f'''"""Model definition."""
+
+from geronimo.models import Model, HyperParams
+
+# from .features import ProjectFeatures
+
+
+class ProjectModel(Model):
+    """Main model class."""
+
+    name = "{name}"
+    version = "1.0.0"
+    # features = ProjectFeatures()
+
+    def train(self, X, y, params: HyperParams) -> None:
+        """Train the model."""
+        # self.estimator = YourModel(**params.to_dict())
+        # self.estimator.fit(X, y)
+        raise NotImplementedError("Implement train() method")
+
+    def predict(self, X):
+        """Generate predictions."""
+        # return self.estimator.predict(X)
+        raise NotImplementedError("Implement predict() method")
+''')
+
+    # Endpoint or pipeline based on template
+    if template in ("realtime", "both"):
+        (sdk_dir / "endpoint.py").write_text(f'''"""Endpoint definition for real-time serving."""
+
+from geronimo.serving import Endpoint
+
+# from .model import ProjectModel
+
+
+class PredictEndpoint(Endpoint):
+    """Prediction endpoint."""
+
+    # model_class = ProjectModel
+
+    def preprocess(self, request: dict):
+        """Preprocess incoming request."""
+        # df = pd.DataFrame([request["data"]])
+        # return self.model.features.transform(df)
+        raise NotImplementedError("Implement preprocess() method")
+
+    def postprocess(self, prediction):
+        """Postprocess model output."""
+        # return {{"score": float(prediction[0])}}
+        raise NotImplementedError("Implement postprocess() method")
+''')
+
+    if template in ("batch", "both"):
+        (sdk_dir / "pipeline.py").write_text(f'''"""Batch pipeline definition."""
+
+from geronimo.batch import BatchPipeline, Schedule
+
+# from .model import ProjectModel
+
+
+class ScoringPipeline(BatchPipeline):
+    """Batch scoring pipeline."""
+
+    # model_class = ProjectModel
+    schedule = Schedule.daily(hour=6)
+
+    def run(self):
+        """Main pipeline logic."""
+        # data = self.model.features.data_source.load()
+        # X = self.model.features.transform(data)
+        # predictions = self.model.predict(X)
+        # self.save_results(predictions)
+        raise NotImplementedError("Implement run() method")
+''')
 
 
 # ============================================================================

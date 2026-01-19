@@ -1,0 +1,61 @@
+project:
+  name: iris-realtime
+  version: 1.0.0
+  description: ML model serving API for iris-realtime
+model:
+  type: realtime
+  framework: sklearn
+  artifact_path: models/model.joblib
+runtime:
+  python_version: '3.11'
+  dependencies:
+  - fastapi>=0.109.0
+  - uvicorn[standard]>=0.27.0
+  - pydantic>=2.5.0
+  - numpy>=1.24.0
+  - pandas>=2.0.0
+  - scikit-learn>=1.3.0
+  - joblib>=1.3.0
+infrastructure:
+  cpu: 512
+  memory: 1024
+  scaling:
+    min_instances: 1
+    max_instances: 4
+    target_cpu_percent: 70
+monitoring:
+  metrics:
+  - latency_p50
+  - latency_p99
+  - error_rate
+  - request_count
+  alerts: []
+  dashboard_enabled: true
+  drift_detection:
+    enabled: false
+    s3_bucket: model-monitoring
+    sampling_rate: 0.05
+    window_days: 7
+    drift_threshold: 0.1
+    dataset_drift_threshold: 0.3
+    retention_days: 90
+    auto_capture_on_deploy: true
+deployment:
+  environments:
+  - name: dev
+    auto_deploy: true
+    approval_required: false
+    variables: {}
+  - name: prod
+    auto_deploy: false
+    approval_required: true
+    variables: {}
+batch:
+  enabled: false
+  backend: step-functions
+  step_functions:
+    s3_root: s3://metaflow-data
+  airflow:
+    connection_id: astronomer_default
+    namespace: default
+  jobs: []

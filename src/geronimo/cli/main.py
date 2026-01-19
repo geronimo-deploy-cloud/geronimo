@@ -275,6 +275,10 @@ generate_app = typer.Typer(
 )
 app.add_typer(generate_app, name="generate")
 
+# Import and register keys CLI
+from geronimo.cli.keys_cmd import keys_app
+app.add_typer(keys_app, name="keys")
+
 
 @generate_app.command("terraform")
 def generate_terraform(

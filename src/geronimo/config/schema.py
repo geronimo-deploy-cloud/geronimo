@@ -6,7 +6,7 @@ This module defines Pydantic models for the geronimo.yaml configuration file.
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelType(str, Enum):
@@ -311,6 +311,8 @@ class GeronimoConfig(BaseModel):
     This is the Pydantic model for geronimo.yaml files.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     project: ProjectConfig = Field(..., description="Project metadata")
     model: ModelConfig = Field(default_factory=ModelConfig)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
@@ -321,7 +323,3 @@ class GeronimoConfig(BaseModel):
     deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)
     batch: BatchConfig = Field(default_factory=BatchConfig)
 
-    class Config:
-        """Pydantic configuration."""
-
-        extra = "forbid"  # Fail on unknown fields

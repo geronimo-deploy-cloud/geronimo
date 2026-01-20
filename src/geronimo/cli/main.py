@@ -117,9 +117,8 @@ def init(
     try:
         generator.generate()
 
-        # Generate SDK scaffolding (only for realtime - batch has pipeline in main package)
-        if template in ("realtime", "both"):
-            _generate_sdk_scaffold(name, output_dir, template)
+        # SDK scaffolding is now handled by ProjectGenerator.generate()
+        # which creates sdk/endpoint.py, sdk/pipeline.py, app.py, flow.py, etc.
 
         next_steps = [
             f"cd {name}",

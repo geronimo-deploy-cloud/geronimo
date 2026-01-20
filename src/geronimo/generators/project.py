@@ -81,12 +81,15 @@ class ProjectGenerator(BaseGenerator):
                 "mcp>=0.1.0",
             ]
         elif self.template == "batch":
-            template_deps = []
+            template_deps = [
+                "metaflow>=2.10.0",
+            ]
         else:  # both
             template_deps = [
                 "fastapi>=0.109.0",
                 "uvicorn[standard]>=0.27.0",
                 "mcp>=0.1.0",
+                "metaflow>=2.10.0",
             ]
 
         # Framework-specific deps
@@ -401,16 +404,11 @@ from .model import ProjectModel
 class PredictEndpoint(Endpoint):
     """Prediction endpoint for real-time serving.
     
-    Implement preprocess() to transform incoming requests,
-    and postprocess() to format the response.
+    This is a working demo endpoint. Replace the preprocess/postprocess
+    methods with your actual implementation once you have a trained model.
     
-    Example:
-        def preprocess(self, request):
-            df = pd.DataFrame([request["features"]])
-            return self.model.features.transform(df)
-        
-        def postprocess(self, prediction):
-            return {{"prediction": int(prediction[0]), "confidence": 0.95}}
+    To train a model:
+        uv run python -m {context["project_name_snake"]}.train
     """
 
     model_class = ProjectModel
@@ -419,16 +417,17 @@ class PredictEndpoint(Endpoint):
         """Transform incoming request to model input.
         
         Args:
-            request: JSON request body
+            request: JSON request body with "features" key
             
         Returns:
             Feature matrix ready for model.predict()
         """
-        # TODO: Implement preprocessing
+        # Demo mode: just return the features dict
+        # TODO: Replace with actual preprocessing once model is trained
         # import pandas as pd
         # df = pd.DataFrame([request["features"]])
         # return self.model.features.transform(df)
-        raise NotImplementedError("Implement preprocess()")
+        return request.get("features", request)
 
     def postprocess(self, prediction):
         """Format model output for response.
@@ -439,9 +438,35 @@ class PredictEndpoint(Endpoint):
         Returns:
             JSON-serializable response
         """
-        # TODO: Implement postprocessing
-        # return {{"prediction": int(prediction[0])}}
-        raise NotImplementedError("Implement postprocess()")
+        # Demo mode: echo the input back
+        # TODO: Replace with actual postprocessing once model is trained
+        # return {{"prediction": int(prediction[0]), "confidence": 0.95}}
+        return {{"result": prediction, "status": "demo_mode"}}
+    
+    def initialize(self, project=None, version=None):
+        """Initialize endpoint.
+        
+        Demo mode: Skip model loading if artifacts don't exist.
+        """
+        try:
+            super().initialize(project=project, version=version)
+        except Exception:
+            # Demo mode: continue without trained model
+            self.model = None
+            self._is_initialized = True
+    
+    def handle(self, request: dict) -> dict:
+        """Handle prediction request.
+        
+        Demo mode: If no model loaded, echo the request back.
+        """
+        if self.model is None:
+            # Demo mode
+            features = self.preprocess(request)
+            return self.postprocess(features)
+        
+        # Normal mode with trained model
+        return super().handle(request)
 '''
 
     def _generate_sdk_monitoring_config(self, context: dict) -> str:
@@ -760,57 +785,73 @@ def send_pipeline_completion_alert(alert_manager, result: dict, success: bool = 
 
 from geronimo.batch import BatchPipeline, Schedule
 from .model import ProjectModel
-from .data_sources import scoring_data  # Import scoring data source
+from .data_sources import scoring_data
 
 
 class ScoringPipeline(BatchPipeline):
     """Batch scoring pipeline.
     
-    Implement the run() method with your batch processing logic.
-    The pipeline will be executed on the defined schedule.
-    Uses scoring_data from data_sources.py to load input data.
+    This is a working demo pipeline. Replace the run() method with your
+    actual implementation once you have a trained model.
     
-    Example:
-        def run(self):
-            # Load data from configured source
-            data = scoring_data.load()
-            
-            # Transform and predict
-            X = self.model.features.transform(data)
-            predictions = self.model.predict(X)
-            
-            # Save results
-            results = data.assign(prediction=predictions)
-            return self.save_results(results)
+    To train a model:
+        uv run python -m {context["project_name_snake"]}.train
     """
 
     name = "{context["project_name"]}-scoring"
     model_class = ProjectModel
     schedule = Schedule.daily(hour=6, minute=0)
-    data_source = scoring_data  # Connect to scoring data source
+    data_source = scoring_data
+
+    def initialize(self):
+        """Initialize pipeline.
+        
+        Demo mode: Skip model loading if no artifacts exist.
+        """
+        try:
+            super().initialize()
+        except Exception:
+            # Demo mode: continue without trained model
+            self.model = None
+            self._is_initialized = True
+            print("Running in DEMO MODE (no trained model)")
+
+    def execute(self):
+        """Execute the pipeline.
+        
+        Demo mode: Return sample results if no model loaded.
+        """
+        if self.model is None:
+            # Demo mode
+            return self.run()
+        return super().execute()
 
     def run(self):
         """Execute batch processing.
         
+        Demo mode implementation - replace with your actual logic.
+        
         Returns:
             Dict with execution results
         """
-        # TODO: Implement batch logic
-        # Load data from configured source
+        # Demo mode: return sample results
+        # TODO: Replace with actual batch logic once model is trained
+        #
+        # Example implementation:
         # data = self.data_source.load()
-        # 
-        # Transform features
         # X = self.model.features.transform(data)
-        # 
-        # Generate predictions
         # predictions = self.model.predict(X)
-        # 
-        # Save results
         # results = data.assign(prediction=predictions)
         # output_path = self.save_results(results)
         # return {{"samples_scored": len(results), "output_path": output_path}}
-        raise NotImplementedError("Implement run()")
+        
+        return {{
+            "status": "demo_mode",
+            "message": "Pipeline executed successfully in demo mode",
+            "samples_scored": 0,
+        }}
 '''
+
 
     def _generate_app_wrapper(self, context: dict) -> str:
         """Generate thin FastAPI wrapper that imports SDK endpoint."""
@@ -859,7 +900,7 @@ def get_endpoint():
     global _endpoint
     if _endpoint is None:
         _endpoint = PredictEndpoint()
-        _endpoint.load()
+        _endpoint.initialize()
     return _endpoint
 
 

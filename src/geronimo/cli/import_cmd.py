@@ -122,31 +122,45 @@ def import_project(
         # Save configuration
         save_config(config, config_file)
 
-        # Generate SDK wrappers
+        # Generate SDK wrappers in src/{project}/sdk/ (consistent with init command)
         console.print("\n[dim]Generating SDK wrappers...[/dim]")
         from geronimo.analyzers.sdk_wrapper import SDKWrapperGenerator
 
         wrapper_gen = SDKWrapperGenerator(project_path)
         sdk_result = wrapper_gen.analyze()
 
-        # Create geronimo_sdk directory
-        sdk_dir = output_path / "geronimo_sdk"
+        # Determine project package name
+        project_name_snake = scan.project_name.replace("-", "_")
+        
+        # Create SDK directory in src/{project}/sdk/
+        src_dir = output_path / "src" / project_name_snake
+        src_dir.mkdir(parents=True, exist_ok=True)
+        sdk_dir = src_dir / "sdk"
         sdk_dir.mkdir(exist_ok=True)
 
-        # Write generated files
-        (sdk_dir / "__init__.py").write_text('"""Geronimo SDK wrappers."""\n')
+        # Write SDK files
+        (sdk_dir / "__init__.py").write_text('"""Geronimo SDK - define your model lifecycle here."""\n')
         (sdk_dir / "features.py").write_text(sdk_result.feature_set_code)
         (sdk_dir / "data_sources.py").write_text(sdk_result.data_sources_code)
         (sdk_dir / "model.py").write_text(sdk_result.model_code)
         (sdk_dir / "endpoint.py").write_text(sdk_result.endpoint_code)
         (sdk_dir / "IMPORT_SUMMARY.md").write_text(wrapper_gen.generate_summary())
+        
+        # Generate monitoring_config.py for realtime projects
+        monitoring_config = _generate_monitoring_config(project_name_snake)
+        (sdk_dir / "monitoring_config.py").write_text(monitoring_config)
+        
+        # Generate thin app.py wrapper
+        app_wrapper = _generate_app_wrapper(project_name_snake, scan.project_name)
+        (src_dir / "app.py").write_text(app_wrapper)
 
-        console.print(f"  ✓ Generated SDK wrappers in [cyan]geronimo_sdk/[/cyan]")
+        console.print(f"  ✓ Generated SDK in [cyan]src/{project_name_snake}/sdk/[/cyan]")
+        console.print(f"  ✓ Generated [cyan]app.py[/cyan] wrapper")
         console.print(f"  ✓ {len(sdk_result.detected_patterns)} patterns detected")
         console.print(f"  ✓ {len(sdk_result.todos)} TODO items created")
 
         # Display summary
-        _display_summary(config_file, result, sdk_result)
+        _display_summary(config_file, result, sdk_result, project_name_snake)
 
     except FileNotFoundError as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
@@ -276,28 +290,173 @@ def _generate_config(scan, result, name_override: str | None) -> GeronimoConfig:
     )
 
 
-def _display_summary(config_file: Path, result, sdk_result=None) -> None:
+def _display_summary(config_file: Path, result, sdk_result=None, project_name_snake: str = "") -> None:
     """Display import summary."""
     sdk_info = ""
     if sdk_result:
         high_todos = len([t for t in sdk_result.todos if t.priority.value == "HIGH"])
+        sdk_path = f"src/{project_name_snake}/sdk/" if project_name_snake else "sdk/"
         sdk_info = (
-            f"\nSDK wrappers: [cyan]geronimo_sdk/[/cyan]\n"
+            f"\nSDK: [cyan]{sdk_path}[/cyan]\n"
             f"Patterns detected: {len(sdk_result.detected_patterns)}\n"
             f"TODO items: {len(sdk_result.todos)} ({high_todos} HIGH priority)\n"
         )
 
     console.print(
         Panel.fit(
-            f"[bold green]✓ Configuration generated![/bold green]\n\n"
+            f"[bold green]✓ Project imported successfully![/bold green]\n\n"
             f"Config file: [cyan]{config_file}[/cyan]\n"
             f"{sdk_info}\n"
             f"Next steps:\n"
-            f"  1. Review [cyan]geronimo_sdk/IMPORT_SUMMARY.md[/cyan] for TODOs\n"
-            f"  2. Customize [cyan]geronimo_sdk/[/cyan] files\n"
-            f"  3. Run [cyan]geronimo validate[/cyan]\n"
-            f"  4. Run [cyan]geronimo generate all[/cyan]",
+            f"  1. Review [cyan]src/{project_name_snake}/sdk/IMPORT_SUMMARY.md[/cyan]\n"
+            f"  2. Implement SDK files (model.py, endpoint.py, etc.)\n"
+            f"  3. Run [cyan]uvicorn {project_name_snake}.app:app --reload[/cyan]\n"
+            f"  4. Run [cyan]geronimo generate all[/cyan] for deployment",
             border_style="green",
         )
     )
 
+
+def _generate_monitoring_config(project_name_snake: str) -> str:
+    """Generate monitoring_config.py for imported projects."""
+    return f'''"""Realtime monitoring configuration - metrics thresholds and alerts.
+
+Realtime endpoints focus on:
+- Latency monitoring (p50, p99 thresholds)
+- Error rate tracking
+- Alerts for threshold breaches (Slack/email)
+
+NOTE: For drift detection in realtime, consider using batch monitoring
+to periodically analyze sampled request data.
+"""
+
+import os
+from {project_name_snake}.monitoring.alerts import AlertManager, AlertSeverity
+from {project_name_snake}.monitoring.metrics import MetricsCollector
+
+
+# =============================================================================
+# Latency Thresholds - customize these values
+# =============================================================================
+
+LATENCY_P50_WARNING = 100.0  # Alert if p50 latency exceeds this (ms)
+LATENCY_P99_WARNING = 500.0  # Alert if p99 latency exceeds this (ms)
+
+ERROR_RATE_WARNING = 1.0     # Alert if error rate exceeds 1%
+ERROR_RATE_CRITICAL = 5.0    # Critical alert if error rate exceeds 5%
+
+
+# =============================================================================
+# Alert Configuration
+# =============================================================================
+
+def create_alert_manager() -> AlertManager:
+    """Create alert manager with Slack integration.
+    
+    Set SLACK_WEBHOOK_URL environment variable to enable Slack alerts.
+    """
+    alerts = AlertManager(cooldown_seconds=300)
+    
+    slack_webhook = os.getenv("SLACK_WEBHOOK_URL")
+    if slack_webhook:
+        alerts.add_slack(webhook_url=slack_webhook)
+    
+    return alerts
+
+
+def check_thresholds(metrics: MetricsCollector, alerts: AlertManager) -> None:
+    """Check metrics against thresholds and send alerts if breached."""
+    p50 = metrics.get_latency_p50()
+    if p50 > LATENCY_P50_WARNING:
+        alerts.alert(
+            title="High P50 Latency",
+            message=f"P50 latency is {{p50:.1f}}ms (threshold: {{LATENCY_P50_WARNING}}ms)",
+            severity=AlertSeverity.WARNING,
+        )
+    
+    p99 = metrics.get_latency_p99()
+    if p99 > LATENCY_P99_WARNING:
+        alerts.alert(
+            title="High P99 Latency", 
+            message=f"P99 latency is {{p99:.1f}}ms (threshold: {{LATENCY_P99_WARNING}}ms)",
+            severity=AlertSeverity.WARNING,
+        )
+'''
+
+
+def _generate_app_wrapper(project_name_snake: str, project_name: str) -> str:
+    """Generate thin FastAPI wrapper that imports from SDK."""
+    return f'''"""FastAPI application - thin wrapper around SDK endpoint.
+
+This app integrates:
+- SDK endpoint for predictions
+- Monitoring middleware for latency/error tracking
+"""
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Any
+
+from {project_name_snake}.sdk.endpoint import PredictEndpoint
+
+
+# Initialize app
+app = FastAPI(
+    title="{project_name}",
+    description="ML model serving API (imported)",
+    version="1.0.0",
+)
+
+# Lazy-load endpoint
+_endpoint = None
+
+def get_endpoint():
+    global _endpoint
+    if _endpoint is None:
+        _endpoint = PredictEndpoint()
+        _endpoint.load()
+    return _endpoint
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load model on startup."""
+    get_endpoint()
+    yield
+
+
+class PredictRequest(BaseModel):
+    """Prediction request schema."""
+    features: dict[str, Any]
+
+
+class PredictResponse(BaseModel):
+    """Prediction response schema."""
+    prediction: Any
+
+
+@app.get("/health")
+def health():
+    """Health check."""
+    return {{"status": "ok"}}
+
+
+@app.post("/predict", response_model=PredictResponse)
+def predict(request: PredictRequest):
+    """Generate prediction."""
+    try:
+        endpoint = get_endpoint()
+        result = endpoint.handle(request.model_dump())
+        return PredictResponse(prediction=result)
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+'''

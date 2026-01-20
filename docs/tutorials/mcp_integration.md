@@ -4,15 +4,13 @@ Geronimo projects are "Agent-Ready" — they can be used as tools by AI agents v
 
 ## Overview
 
-Every generated project includes an `agent/` package that exposes your model as an MCP tool. This allows AI assistants like Claude to call your model directly.
+Every generated project can expose your SDK endpoint as an MCP tool. This allows AI assistants like Claude to call your model directly.
 
 ## Transports
 
-Two transport options are available:
-
 | Transport | Use Case | Endpoint |
 |-----------|----------|----------|
-| Stdio | Local desktop agents (Claude Desktop) | N/A (stdin/stdout) |
+| Stdio | Local desktop agents (Claude Desktop) | stdin/stdout |
 | Streamable HTTP | Remote agents, web integrations | `/mcp` |
 
 ## Configuration
@@ -29,7 +27,8 @@ export ENABLE_MCP_AGENT=false
 ### 1. Build Your Project
 
 ```bash
-cd examples/credit-risk
+geronimo init --name my-model --template realtime
+cd my-model
 uv sync
 ```
 
@@ -42,10 +41,10 @@ Edit your Claude Desktop configuration file:
 ```json
 {
   "mcpServers": {
-    "credit-risk-model": {
+    "my-model": {
       "command": "uv",
-      "args": ["run", "python", "-m", "credit_risk.agent.server"],
-      "cwd": "/absolute/path/to/examples/credit-risk"
+      "args": ["run", "python", "-m", "my_model.agent.server"],
+      "cwd": "/absolute/path/to/my-model"
     }
   }
 }
@@ -55,20 +54,21 @@ Edit your Claude Desktop configuration file:
 
 After restarting, Claude can use your model:
 
-> "Evaluate credit risk for a customer with income $75,000 and age 35"
+> "Use my-model to predict for a customer with income $75,000 and age 35"
 
 ## Testing via Streamable HTTP
 
 ### 1. Start the Server
 
 ```bash
-uv run uvicorn credit_risk.api.main:app
+uvicorn my_model.app:app --reload
 ```
 
 ### 2. Verify Endpoint
 
 ```bash
-# Check MCP endpoint is available
+# Check health and MCP endpoint
+curl http://localhost:8000/health
 curl http://localhost:8000/mcp
 ```
 
@@ -78,21 +78,54 @@ Use any MCP-compatible client to connect to `http://localhost:8000/mcp`.
 
 ## Tool Definition
 
-The generated tool wraps your `predict` endpoint:
+The generated tool wraps your SDK endpoint:
 
 ```python
+# agent/server.py
 from mcp.server.fastmcp import FastMCP
+from my_model.sdk.endpoint import PredictEndpoint
 
-mcp = FastMCP("credit-risk-agent")
+mcp = FastMCP("my-model-agent")
+endpoint = PredictEndpoint()
+endpoint.load()
 
 @mcp.tool()
-async def predict(input_data: dict) -> str:
+async def predict(features: dict) -> str:
     """Make a prediction using the ML model."""
-    predictor = get_predictor()
-    result = predictor.predict(input_data)
+    result = endpoint.handle({"features": features})
     return str(result)
 ```
 
+## How It Works with SDK
+
+```
+Claude Request → MCP Tool → SDK Endpoint → Model.predict()
+                    ↓             ↓
+              preprocess()   postprocess()
+```
+
+The MCP tool simply calls your SDK `PredictEndpoint`, which handles:
+1. `preprocess()` — Transform request to model input
+2. `model.predict()` — Generate prediction
+3. `postprocess()` — Format response
+
 ## Customization
 
-The agent implementation is in `src/<project>/agent/server.py`. You can add additional tools, resources, or prompts as needed.
+The agent implementation is in `src/<project>/agent/server.py`. You can:
+
+- Add additional tools (e.g., `get_feature_importance`, `explain_prediction`)
+- Add resources (expose model metadata)
+- Add prompts (pre-built queries for common use cases)
+
+```python
+@mcp.tool()
+async def explain_prediction(features: dict) -> str:
+    """Explain why the model made this prediction."""
+    # Add SHAP or other explainability
+    ...
+
+@mcp.resource("model://info")
+async def get_model_info() -> str:
+    """Get model metadata."""
+    return f"Model: {endpoint.model.name} v{endpoint.model.version}"
+```

@@ -2,6 +2,25 @@
 
 Complete API reference for the Geronimo SDK modules.
 
+## Project Structure
+
+```
+my-project/
+├── src/my_project/
+│   ├── sdk/                      # YOUR CODE GOES HERE
+│   │   ├── model.py              # Model class
+│   │   ├── features.py           # FeatureSet class
+│   │   ├── data_sources.py       # DataSource configs
+│   │   ├── endpoint.py           # [realtime] Endpoint class
+│   │   ├── pipeline.py           # [batch] BatchPipeline class
+│   │   └── monitoring_config.py  # Thresholds and alerts
+│   ├── app.py                    # [realtime] FastAPI wrapper
+│   ├── flow.py                   # [batch] Metaflow wrapper
+│   └── train.py                  # Training script
+```
+
+---
+
 ## geronimo.data
 
 ### DataSource
@@ -9,17 +28,23 @@ Complete API reference for the Geronimo SDK modules.
 ```python
 from geronimo.data import DataSource, Query
 
+# File source
+training_data = DataSource(
+    name="training",
+    source="file",
+    path="data/train.csv",
+)
+
 # SQL database source
 source = DataSource(
     name="training_data",
     source="snowflake",  # "postgres", "sqlserver", "file"
     query=Query.from_file("queries/train.sql"),
-    connection_params={"warehouse": "ML_WH"},  # Optional overrides
+    connection_params={"warehouse": "ML_WH"},
 )
-df = source.load(start_date="2024-01-01")
 
-# File source
-source = DataSource(name="local", source="file", path="data/train.csv")
+# Load data
+df = source.load(start_date="2024-01-01")
 ```
 
 ### Query
@@ -47,7 +72,7 @@ sql = query.render(start_date="2024-01-01")
 from geronimo.features import FeatureSet, Feature
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
-class CustomerFeatures(FeatureSet):
+class ProjectFeatures(FeatureSet):
     # Optional: link to data source
     data_source = training_data
 
@@ -58,7 +83,7 @@ class CustomerFeatures(FeatureSet):
     name = Feature(dtype="text", drop=True)  # Excluded from output
 
 # Training
-features = CustomerFeatures()
+features = ProjectFeatures()
 X = features.fit_transform(train_df)
 
 # Production
@@ -84,21 +109,25 @@ X = features.transform(prod_df)
 
 ```python
 from geronimo.models import Model, HyperParams
+from .features import ProjectFeatures
+from .data_sources import training_data
 
-class CreditRiskModel(Model):
-    name = "credit-risk"
-    version = "1.2.0"
-    features = CustomerFeatures()
+class ProjectModel(Model):
+    name = "my-model"
+    version = "1.0.0"
+    features = ProjectFeatures()
+    data_source = training_data
 
     def train(self, X, y, params: HyperParams):
-        self.estimator = XGBClassifier(**params.to_dict())
+        from sklearn.ensemble import RandomForestClassifier
+        self.estimator = RandomForestClassifier(**params.to_dict())
         self.estimator.fit(X, y)
 
     def predict(self, X):
         return self.estimator.predict_proba(X)
 
 # Usage
-model = CreditRiskModel()
+model = ProjectModel()
 model.train(X, y, HyperParams(n_estimators=100, max_depth=5))
 model.save(store)
 ```
@@ -118,6 +147,110 @@ params = HyperParams(
 )
 for combo in params.grid():
     model.train(X, y, combo)
+```
+
+---
+
+## geronimo.serving
+
+### Endpoint
+
+```python
+from geronimo.serving import Endpoint
+from .model import ProjectModel
+
+class PredictEndpoint(Endpoint):
+    model_class = ProjectModel
+
+    def preprocess(self, request: dict):
+        """Transform request to model input."""
+        import pandas as pd
+        df = pd.DataFrame([request["features"]])
+        return self.model.features.transform(df)
+
+    def postprocess(self, prediction):
+        """Format model output as response."""
+        return {"score": float(prediction[0])}
+
+# Usage (handled by app.py wrapper)
+endpoint = PredictEndpoint()
+endpoint.load()
+result = endpoint.handle({"features": {"age": 30, "income": 50000}})
+```
+
+### app.py Wrapper
+
+The generated `app.py` is a thin FastAPI wrapper (~50 lines):
+
+```python
+from my_model.sdk.endpoint import PredictEndpoint
+
+app = FastAPI(title="my-model")
+app.add_middleware(MonitoringMiddleware, collector=metrics)
+
+@app.post("/predict")
+def predict(request: PredictRequest):
+    endpoint = get_endpoint()
+    return endpoint.handle(request.model_dump())
+```
+
+---
+
+## geronimo.batch
+
+### BatchPipeline
+
+```python
+from geronimo.batch import BatchPipeline, Schedule
+from .model import ProjectModel
+from .data_sources import scoring_data
+
+class ScoringPipeline(BatchPipeline):
+    model_class = ProjectModel
+    data_source = scoring_data
+    schedule = Schedule.daily(hour=6)
+
+    def run(self):
+        """Execute batch scoring logic."""
+        data = self.data_source.load()
+        X = self.model.features.transform(data)
+        predictions = self.model.predict(X)
+        self.save_results(predictions, "batch/output/scores.parquet")
+        return {"samples_scored": len(predictions)}
+
+# Usage (handled by flow.py wrapper)
+pipeline = ScoringPipeline()
+pipeline.initialize()
+result = pipeline.execute()
+```
+
+### flow.py Wrapper
+
+The generated `flow.py` is a thin Metaflow wrapper (~40 lines):
+
+```python
+from my_pipeline.sdk.pipeline import ScoringPipeline
+
+@schedule(daily=True)
+class ScoringFlow(FlowSpec):
+    @step
+    def run_pipeline(self):
+        self.pipeline = ScoringPipeline()
+        self.result = self.pipeline.execute()
+```
+
+### Schedule & Trigger
+
+```python
+from geronimo.batch import Schedule, Trigger
+
+Schedule.cron("0 6 * * *")
+Schedule.daily(hour=6)
+Schedule.weekly(day=0, hour=0)
+
+Trigger.s3_upload(bucket="data", prefix="input/")
+Trigger.sns_message(topic_arn="arn:aws:sns:...")
+Trigger.manual()
 ```
 
 ---
@@ -147,83 +280,42 @@ model = store.get("model")
 store.list()  # [ArtifactMetadata(...), ...]
 ```
 
-### MLflowArtifactStore
-
-```python
-from geronimo.artifacts import MLflowArtifactStore
-
-store = MLflowArtifactStore(
-    project="credit-risk",
-    version="1.2.0",
-    tracking_uri="http://localhost:5000",
-)
-store.save("model", model)
-store.log_metrics({"auc": 0.95, "precision": 0.88})
-store.log_params({"n_estimators": 100})
-store.end_run()
-```
-
 ---
 
-## geronimo.serving
+## SDK Monitoring Config
 
-### Endpoint
+### Real-Time (`sdk/monitoring_config.py`)
 
 ```python
-from geronimo.serving import Endpoint
+LATENCY_P50_WARNING = 100.0   # ms
+LATENCY_P99_WARNING = 500.0   # ms
+ERROR_RATE_WARNING = 1.0      # %
+ERROR_RATE_CRITICAL = 5.0     # %
 
-class PredictEndpoint(Endpoint):
-    model_class = CreditRiskModel
+def create_alert_manager() -> AlertManager:
+    """Configured with SLACK_WEBHOOK_URL env var."""
+    ...
 
-    def preprocess(self, request: dict):
-        import pandas as pd
-        df = pd.DataFrame([request["data"]])
-        return self.model.features.transform(df)
-
-    def postprocess(self, prediction):
-        return {"score": float(prediction[0])}
-
-# Usage
-endpoint = PredictEndpoint()
-endpoint.initialize()
-result = endpoint.handle({"data": {"age": 30, "income": 50000}})
+def check_thresholds(metrics, alerts) -> None:
+    """Check metrics and send alerts if breached."""
+    ...
 ```
 
----
-
-## geronimo.batch
-
-### BatchPipeline
+### Batch (`sdk/monitoring_config.py`)
 
 ```python
-from geronimo.batch import BatchPipeline, Schedule
+FEATURE_DRIFT_THRESHOLD = 0.3
+DATASET_DRIFT_THRESHOLD = 0.1
 
-class DailyScoringPipeline(BatchPipeline):
-    model_class = CreditRiskModel
-    schedule = Schedule.daily(hour=6)
+def create_drift_detector(reference_data):
+    """Create detector for drift checking."""
+    ...
 
-    def run(self):
-        data = self.model.features.data_source.load()
-        X = self.model.features.transform(data)
-        predictions = self.model.predict(X)
-        self.save_results(predictions)
+def check_drift(detector, current_data, alert_manager=None):
+    """Check for drift and optionally alert."""
+    ...
 
-# Execute
-pipeline = DailyScoringPipeline()
-pipeline.initialize()
-pipeline.execute()
-```
-
-### Schedule & Trigger
-
-```python
-from geronimo.batch import Schedule, Trigger
-
-Schedule.cron("0 6 * * *")
-Schedule.daily(hour=6)
-Schedule.weekly(day=0, hour=0)
-
-Trigger.s3_upload(bucket="data", prefix="input/")
-Trigger.sns_message(topic_arn="arn:aws:sns:...")
-Trigger.manual()
+def send_pipeline_completion_alert(alerts, result, success=True):
+    """Notify on pipeline completion."""
+    ...
 ```

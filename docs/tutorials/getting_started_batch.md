@@ -16,14 +16,18 @@ uv sync
 my-pipeline/
 ├── geronimo.yaml
 ├── src/my_pipeline/
-│   ├── ml/           # Model code
-│   └── sdk/          # Geronimo SDK components
-│       ├── features.py
-│       ├── data_sources.py
-│       ├── model.py
-│       └── pipeline.py
-└── batch/
-    └── flows/        # Generated Metaflow flows
+│   ├── sdk/                      # YOUR CODE GOES HERE
+│   │   ├── model.py              # Define train() and predict()
+│   │   ├── features.py           # Define FeatureSet
+│   │   ├── data_sources.py       # Configure data loading
+│   │   ├── pipeline.py           # Define run() logic
+│   │   └── monitoring_config.py  # Drift thresholds and alerts
+│   ├── flow.py                   # Thin Metaflow wrapper (auto-generated)
+│   └── train.py                  # Training script
+├── batch/
+│   ├── data/                     # Input data
+│   └── output/                   # Scored results
+└── models/                       # Saved model artifacts
 ```
 
 ## 3. Implement SDK Components
@@ -33,10 +37,18 @@ my-pipeline/
 ```python
 from geronimo.data import DataSource, Query
 
+# Training data source
 training_data = DataSource(
-    name="customers",
-    source="snowflake",
-    query=Query.from_file("queries/customers.sql"),
+    name="training",
+    source="file",
+    path="data/train.csv",
+)
+
+# Scoring data for batch predictions
+scoring_data = DataSource(
+    name="scoring",
+    source="file",
+    path="batch/data/input.csv",
 )
 ```
 
@@ -46,23 +58,24 @@ training_data = DataSource(
 from geronimo.features import FeatureSet, Feature
 from sklearn.preprocessing import StandardScaler
 
-class CustomerFeatures(FeatureSet):
-    data_source = training_data
-
-    age = Feature(dtype="numeric", transformer=StandardScaler())
-    income = Feature(dtype="numeric", transformer=StandardScaler())
+class ProjectFeatures(FeatureSet):
+    # age = Feature(dtype="numeric", transformer=StandardScaler())
+    # income = Feature(dtype="numeric", transformer=StandardScaler())
+    pass
 ```
 
 ### Define Model (`sdk/model.py`)
 
 ```python
 from geronimo.models import Model, HyperParams
-from .features import CustomerFeatures
+from .features import ProjectFeatures
+from .data_sources import training_data
 
-class ScoringModel(Model):
+class ProjectModel(Model):
     name = "scoring"
     version = "1.0.0"
-    features = CustomerFeatures()
+    features = ProjectFeatures()
+    data_source = training_data
 
     def train(self, X, y, params: HyperParams):
         from xgboost import XGBClassifier
@@ -77,39 +90,73 @@ class ScoringModel(Model):
 
 ```python
 from geronimo.batch import BatchPipeline, Schedule
-from .model import ScoringModel
+from .model import ProjectModel
+from .data_sources import scoring_data
 
-class DailyScoringPipeline(BatchPipeline):
-    model_class = ScoringModel
+class ScoringPipeline(BatchPipeline):
+    model_class = ProjectModel
+    data_source = scoring_data
     schedule = Schedule.daily(hour=6)
 
     def run(self):
-        # Load data
-        data = self.model.features.data_source.load()
-
+        """Execute batch scoring logic.
+        
+        This method is called by the flow.py wrapper.
+        """
+        # Load scoring data
+        data = self.data_source.load()
+        
         # Transform features
         X = self.model.features.transform(data)
-
+        
         # Predict
         predictions = self.model.predict(X)
-
+        
         # Save results
-        self.save_results(predictions, "s3://output/scores.parquet")
+        self.save_results(predictions, "batch/output/scores.parquet")
+        
+        return {"samples_scored": len(predictions)}
 ```
 
 ## 4. Run Locally
 
 ```bash
-# Execute pipeline
+# Execute via the flow.py wrapper
+python -m my_pipeline.flow run
+```
+
+Or directly via SDK:
+
+```bash
 python -c "
-from my_pipeline.sdk.pipeline import DailyScoringPipeline
-pipeline = DailyScoringPipeline()
+from my_pipeline.sdk.pipeline import ScoringPipeline
+pipeline = ScoringPipeline()
 pipeline.initialize()
-pipeline.execute()
+result = pipeline.execute()
+print(result)
 "
 ```
 
-## 5. Deploy to Step Functions
+## 5. Configure Drift Detection (`sdk/monitoring_config.py`)
+
+```python
+# Drift thresholds
+FEATURE_DRIFT_THRESHOLD = 0.3     # Alert if >30% of features drift
+DATASET_DRIFT_THRESHOLD = 0.1     # Alert if PSI > 0.1
+PREDICTION_DRIFT_THRESHOLD = 0.2  # Alert if prediction dist shifts
+
+# Usage in pipeline:
+from .monitoring_config import create_drift_detector, check_drift
+
+def run(self):
+    detector = create_drift_detector(reference_data=training_df)
+    drift_result = check_drift(detector, scoring_df)
+    if drift_result["has_drift"]:
+        # Log warning or pause pipeline
+        pass
+```
+
+## 6. Deploy to Step Functions
 
 Configure `geronimo.yaml`:
 
@@ -129,10 +176,10 @@ Generate and deploy:
 
 ```bash
 geronimo generate batch
-python batch/flows/daily_scoring.py step-functions create
+python -m my_pipeline.flow step-functions create
 ```
 
-## 6. Schedule Types
+## 7. Schedule Types
 
 ```python
 Schedule.cron("0 6 * * *")      # Cron expression

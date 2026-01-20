@@ -36,9 +36,10 @@ geronimo import .
 
 Generates:
 - `geronimo.yaml` — Deployment config
-- `geronimo_sdk/` — SDK wrappers with TODO tags
+- `src/{project}/sdk/` — SDK wrappers with TODO tags
+- `src/{project}/app.py` — Thin FastAPI wrapper
 
-See [IMPORT_SUMMARY.md](../IMPORT_SUMMARY.md) for detected patterns and action items.
+See `src/{project}/sdk/IMPORT_SUMMARY.md` for detected patterns and action items.
 
 ## Documentation
 

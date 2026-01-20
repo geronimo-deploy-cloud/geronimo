@@ -16,13 +16,16 @@ uv sync
 my-model/
 ├── geronimo.yaml
 ├── src/my_model/
-│   ├── api/          # FastAPI endpoints
-│   ├── ml/           # Model code
-│   └── sdk/          # Geronimo SDK components
-│       ├── features.py
-│       ├── data_sources.py
-│       ├── model.py
-│       └── endpoint.py
+│   ├── sdk/                    # YOUR CODE GOES HERE
+│   │   ├── model.py            # Define train() and predict()
+│   │   ├── features.py         # Define FeatureSet
+│   │   ├── data_sources.py     # Configure data loading
+│   │   ├── endpoint.py         # Define preprocess/postprocess
+│   │   └── monitoring_config.py # Thresholds and alerts
+│   ├── app.py                  # Thin FastAPI wrapper (auto-generated)
+│   ├── train.py                # Training script
+│   └── monitoring/             # Metrics, alerts, drift detection
+├── models/                     # Saved model artifacts
 └── tests/
 ```
 
@@ -34,22 +37,26 @@ my-model/
 from geronimo.features import FeatureSet, Feature
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
-class CustomerFeatures(FeatureSet):
-    age = Feature(dtype="numeric", transformer=StandardScaler())
-    income = Feature(dtype="numeric", transformer=StandardScaler())
-    segment = Feature(dtype="categorical", encoder=OneHotEncoder())
+class ProjectFeatures(FeatureSet):
+    """Define your feature transformations."""
+    # age = Feature(dtype="numeric", transformer=StandardScaler())
+    # income = Feature(dtype="numeric", transformer=StandardScaler())
+    # segment = Feature(dtype="categorical", encoder=OneHotEncoder())
+    pass
 ```
 
 ### Define Model (`sdk/model.py`)
 
 ```python
 from geronimo.models import Model, HyperParams
-from .features import CustomerFeatures
+from .features import ProjectFeatures
+from .data_sources import training_data
 
-class CreditRiskModel(Model):
-    name = "credit-risk"
+class ProjectModel(Model):
+    name = "my-model"
     version = "1.0.0"
-    features = CustomerFeatures()
+    features = ProjectFeatures()
+    data_source = training_data
 
     def train(self, X, y, params: HyperParams):
         from sklearn.ensemble import RandomForestClassifier
@@ -65,24 +72,29 @@ class CreditRiskModel(Model):
 ```python
 from geronimo.serving import Endpoint
 import pandas as pd
-from .model import CreditRiskModel
+from .model import ProjectModel
 
 class PredictEndpoint(Endpoint):
-    model_class = CreditRiskModel
+    model_class = ProjectModel
 
     def preprocess(self, request: dict):
-        df = pd.DataFrame([request["data"]])
+        """Transform request to model input."""
+        df = pd.DataFrame([request["features"]])
         return self.model.features.transform(df)
 
     def postprocess(self, prediction):
-        return {"score": float(prediction[0][1]), "class": "approved" if prediction[0][1] > 0.5 else "denied"}
+        """Format model output as response."""
+        return {"score": float(prediction[0][1])}
 ```
 
 ## 4. Run Locally
 
 ```bash
-uv run start
+# Start the API server
+uvicorn my_model.app:app --reload
 ```
+
+The thin `app.py` wrapper handles FastAPI setup, imports your SDK endpoint, and adds monitoring middleware.
 
 ## 5. Test Endpoints
 
@@ -90,13 +102,31 @@ uv run start
 # Health check
 curl http://localhost:8000/health
 
+# View metrics
+curl http://localhost:8000/metrics
+
 # Prediction
 curl -X POST http://localhost:8000/predict \
      -H "Content-Type: application/json" \
-     -d '{"data": {"age": 30, "income": 75000, "segment": "premium"}}'
+     -d '{"features": {"age": 30, "income": 75000}}'
 ```
 
-## 6. Deploy
+## 6. Configure Monitoring (`sdk/monitoring_config.py`)
+
+```python
+# Latency thresholds (milliseconds)
+LATENCY_P50_WARNING = 100.0
+LATENCY_P99_WARNING = 500.0
+
+# Error rate thresholds (percentage)
+ERROR_RATE_WARNING = 1.0
+ERROR_RATE_CRITICAL = 5.0
+
+# Enable Slack alerts
+# export SLACK_WEBHOOK_URL="https://hooks.slack.com/..."
+```
+
+## 7. Deploy
 
 ```bash
 geronimo generate all

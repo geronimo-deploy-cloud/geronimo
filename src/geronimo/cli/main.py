@@ -117,17 +117,18 @@ def init(
     try:
         generator.generate()
 
-        # Generate SDK scaffolding
-        _generate_sdk_scaffold(name, output_dir, template)
+        # Generate SDK scaffolding (only for realtime - batch has pipeline in main package)
+        if template in ("realtime", "both"):
+            _generate_sdk_scaffold(name, output_dir, template)
 
         next_steps = [
             f"cd {name}",
             "uv sync",
         ]
         if template in ("realtime", "both"):
-            next_steps.append("uv run start  # Run API server")
+            next_steps.append(f"uvicorn {name.replace('-', '_')}.app:app --reload  # Run API server")
         if template in ("batch", "both"):
-            next_steps.append("python batch/flows/*.py run  # Run batch pipeline")
+            next_steps.append(f"python -m {name.replace('-', '_')}.flow run  # Run batch pipeline")
 
         console.print(
             Panel.fit(

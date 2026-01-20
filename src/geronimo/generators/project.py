@@ -96,27 +96,40 @@ class ProjectGenerator(BaseGenerator):
 
     def _create_config(self) -> GeronimoConfig:
         """Create the default configuration for this project."""
+        # Determine model type based on template
+        model_type = ModelType.BATCH if self.template == "batch" else ModelType.REALTIME
+        
+        # Base dependencies
+        base_deps = [
+            "pydantic>=2.5.0",
+            "numpy>=1.24.0",
+            "pandas>=2.0.0",
+            *self._get_framework_dependencies(),
+        ]
+        
+        # Template-specific dependencies
+        if self.template == "batch":
+            runtime_deps = base_deps + ["metaflow>=2.10.0", "pyarrow>=14.0.0"]
+        else:
+            runtime_deps = base_deps + [
+                "fastapi>=0.109.0",
+                "uvicorn[standard]>=0.27.0",
+            ]
+        
         return GeronimoConfig(
             project=ProjectConfig(
                 name=self.project_name,
                 version="1.0.0",
-                description=f"ML model serving API for {self.project_name}",
+                description=f"ML model serving API for {self.project_name}" if self.template != "batch" else f"ML batch pipeline for {self.project_name}",
             ),
             model=ModelConfig(
-                type=ModelType.REALTIME,
+                type=model_type,
                 framework=self.framework,
                 artifact_path="models/model.joblib",
             ),
             runtime=RuntimeConfig(
                 python_version="3.11",
-                dependencies=[
-                    "fastapi>=0.109.0",
-                    "uvicorn[standard]>=0.27.0",
-                    "pydantic>=2.5.0",
-                    "numpy>=1.24.0",
-                    "pandas>=2.0.0",
-                    *self._get_framework_dependencies(),
-                ],
+                dependencies=runtime_deps,
             ),
             infrastructure=InfrastructureConfig(
                 cpu=512,
@@ -159,8 +172,9 @@ class ProjectGenerator(BaseGenerator):
         # Generate source code
         self._generate_source_code()
 
-        # Generate monitoring code
-        self._generate_monitoring()
+        # Generate monitoring code (only for realtime/both)
+        if self.template in ("realtime", "both"):
+            self._generate_monitoring()
 
         # Generate project files
         self._generate_project_files()
@@ -172,10 +186,20 @@ class ProjectGenerator(BaseGenerator):
         return self.project_dir
 
     def _generate_source_code(self) -> None:
-        """Generate the FastAPI application source code."""
+        """Generate SDK-first application structure.
+        
+        SDK files (user edits):
+            - sdk/model.py - Model train/predict
+            - sdk/features.py - FeatureSet definition
+            - sdk/data_sources.py - DataSource config
+            - sdk/endpoint.py - [realtime] preprocess/postprocess
+            - sdk/pipeline.py - [batch] run() logic
+        
+        Wrappers (thin, rarely edited):
+            - app.py - [realtime] FastAPI imports SDK
+            - flow.py - [batch] Metaflow imports SDK
+        """
         src = self.project_dir / "src"
-
-        # Create package structure
         context = {
             "project_name": self.project_name,
             "project_name_snake": self.project_name.replace("-", "_"),
@@ -185,8 +209,832 @@ class ProjectGenerator(BaseGenerator):
         # Main package
         pkg_dir = src / context["project_name_snake"]
         pkg_dir.mkdir(parents=True, exist_ok=True)
-        self.write_file(pkg_dir / "__init__.py", '"""ML serving package."""\n')
+        self.write_file(pkg_dir / "__init__.py", f'"""ML package for {self.project_name}."""\n')
 
+        # ==============================
+        # SDK Core (always generated)
+        # ==============================
+        sdk_dir = pkg_dir / "sdk"
+        sdk_dir.mkdir(exist_ok=True)
+        self.write_file(sdk_dir / "__init__.py", '"""Geronimo SDK - define your model lifecycle here."""\n')
+        
+        # model.py
+        self.write_file(sdk_dir / "model.py", self._generate_sdk_model(context))
+        
+        # features.py
+        self.write_file(sdk_dir / "features.py", self._generate_sdk_features(context))
+        
+        # data_sources.py
+        self.write_file(sdk_dir / "data_sources.py", self._generate_sdk_data_sources(context))
+
+        # ==============================
+        # Template-specific SDK files
+        # ==============================
+        if self.template in ("realtime", "both"):
+            self.write_file(sdk_dir / "endpoint.py", self._generate_sdk_endpoint(context))
+            self.write_file(sdk_dir / "monitoring_config.py", self._generate_sdk_monitoring_config(context))
+            self.write_file(pkg_dir / "app.py", self._generate_app_wrapper(context))
+        
+        if self.template in ("batch", "both"):
+            self.write_file(sdk_dir / "pipeline.py", self._generate_sdk_pipeline(context))
+            self.write_file(sdk_dir / "monitoring_config.py", self._generate_sdk_batch_monitoring_config(context))
+            self.write_file(pkg_dir / "flow.py", self._generate_flow_wrapper(context))
+            
+            # Batch directory structure
+            batch_dir = self.project_dir / "batch"
+            batch_dir.mkdir(exist_ok=True)
+            (batch_dir / "data").mkdir(exist_ok=True)
+            (batch_dir / "output").mkdir(exist_ok=True)
+
+        # ==============================
+        # Tests
+        # ==============================
+        tests_dir = self.project_dir / "tests"
+        tests_dir.mkdir(exist_ok=True)
+        self.write_file(tests_dir / "__init__.py", '"""Tests package."""\n')
+        
+        self.write_file(tests_dir / "test_sdk.py", self._generate_test_sdk(context))
+
+    def _generate_sdk_model(self, context: dict) -> str:
+        """Generate SDK model.py file."""
+        return f'''"""Model definition - implement your ML model here."""
+
+from geronimo.models import Model, HyperParams
+from .features import ProjectFeatures
+from .data_sources import training_data  # Import your data source
+
+
+class ProjectModel(Model):
+    """Main model class.
+    
+    Define your model's train and predict methods.
+    The features attribute connects to your FeatureSet.
+    The data_source attribute defines where training data comes from.
+    
+    Example:
+        from sklearn.ensemble import RandomForestClassifier
+        
+        def train(self, X, y, params):
+            self.estimator = RandomForestClassifier(**params.to_dict())
+            self.estimator.fit(X, y)
+    """
+
+    name = "{context["project_name"]}"
+    version = "1.0.0"
+    features = ProjectFeatures()
+    data_source = training_data  # Connect to data source
+
+    def train(self, X, y, params: HyperParams) -> None:
+        """Train the model.
+        
+        Args:
+            X: Feature matrix
+            y: Target labels
+            params: Hyperparameters from HyperParams
+        """
+        # TODO: Implement training logic
+        # self.estimator = YourModel(**params.to_dict())
+        # self.estimator.fit(X, y)
+        raise NotImplementedError("Implement train() method")
+
+    def predict(self, X):
+        """Generate predictions.
+        
+        Args:
+            X: Feature matrix
+            
+        Returns:
+            Predictions array
+        """
+        # TODO: Implement prediction logic
+        # return self.estimator.predict(X)
+        raise NotImplementedError("Implement predict() method")
+'''
+
+    def _generate_sdk_features(self, context: dict) -> str:
+        """Generate SDK features.py file."""
+        return '''"""Feature definitions - define your feature engineering here."""
+
+from geronimo.features import FeatureSet, Feature
+# from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+
+class ProjectFeatures(FeatureSet):
+    """Define your features here.
+    
+    Each Feature describes a column with its type, transformer, and encoder.
+    
+    Example:
+        age = Feature(dtype='numeric', transformer=StandardScaler())
+        income = Feature(dtype='numeric', transformer=StandardScaler())
+        category = Feature(dtype='categorical', encoder=OneHotEncoder())
+        
+        # Derived feature from multiple columns
+        age_income_ratio = Feature(
+            dtype='numeric',
+            derived_feature_fn=lambda df: df['age'] / df['income']
+        )
+    """
+    
+    # TODO: Define your features
+    # feature_1 = Feature(dtype='numeric')
+    # feature_2 = Feature(dtype='categorical')
+    pass
+'''
+
+    def _generate_sdk_data_sources(self, context: dict) -> str:
+        """Generate SDK data_sources.py file."""
+        return f'''"""Data source definitions - configure where your data comes from.
+
+This module is imported by model.py and pipeline.py to load training/scoring data.
+"""
+
+from geronimo.data import DataSource, Query
+
+
+# =============================================================================
+# Training Data Source (used by model.py)
+# =============================================================================
+
+# TODO: Configure your training data source
+# Option 1: Local CSV file
+training_data = DataSource(
+    name="training",
+    source="file",
+    path="data/train.csv",  # Update with your path
+)
+
+# Option 2: Snowflake query
+# training_data = DataSource(
+#     name="training",
+#     source="snowflake",
+#     query=Query.from_file("queries/train.sql"),
+# )
+
+# Option 3: S3 parquet
+# training_data = DataSource(
+#     name="training",
+#     source="file",
+#     path="s3://my-bucket/data/train.parquet",
+# )
+
+
+# =============================================================================
+# Scoring Data Source (used by pipeline.py for batch scoring)
+# =============================================================================
+
+scoring_data = DataSource(
+    name="scoring",
+    source="file",
+    path="batch/data/input.csv",  # Update with your path
+)
+'''
+
+    def _generate_sdk_endpoint(self, context: dict) -> str:
+        """Generate SDK endpoint.py file for realtime serving."""
+        return f'''"""Endpoint definition - handle incoming prediction requests."""
+
+from geronimo.serving import Endpoint
+from .model import ProjectModel
+
+
+class PredictEndpoint(Endpoint):
+    """Prediction endpoint for real-time serving.
+    
+    Implement preprocess() to transform incoming requests,
+    and postprocess() to format the response.
+    
+    Example:
+        def preprocess(self, request):
+            df = pd.DataFrame([request["features"]])
+            return self.model.features.transform(df)
+        
+        def postprocess(self, prediction):
+            return {{"prediction": int(prediction[0]), "confidence": 0.95}}
+    """
+
+    model_class = ProjectModel
+
+    def preprocess(self, request: dict):
+        """Transform incoming request to model input.
+        
+        Args:
+            request: JSON request body
+            
+        Returns:
+            Feature matrix ready for model.predict()
+        """
+        # TODO: Implement preprocessing
+        # import pandas as pd
+        # df = pd.DataFrame([request["features"]])
+        # return self.model.features.transform(df)
+        raise NotImplementedError("Implement preprocess()")
+
+    def postprocess(self, prediction):
+        """Format model output for response.
+        
+        Args:
+            prediction: Raw model output
+            
+        Returns:
+            JSON-serializable response
+        """
+        # TODO: Implement postprocessing
+        # return {{"prediction": int(prediction[0])}}
+        raise NotImplementedError("Implement postprocess()")
+'''
+
+    def _generate_sdk_monitoring_config(self, context: dict) -> str:
+        """Generate SDK monitoring_config.py file for realtime - focuses on metrics + alerts."""
+        return f'''"""Realtime monitoring configuration - metrics thresholds and alerts.
+
+Realtime endpoints focus on:
+- Latency monitoring (p50, p99 thresholds)
+- Error rate tracking
+- Alerts for threshold breaches (Slack/email)
+
+NOTE: For drift detection in realtime, consider using batch monitoring
+to periodically analyze sampled request data. Full realtime drift is
+planned for a future release.
+
+TODO: Future enhancement - add realtime drift detection by:
+- Sampling incoming requests to a buffer
+- Periodically comparing buffer against reference data
+- See: https://docs.evidentlyai.com/user-guide/installation/monitor_with_evidently
+"""
+
+import os
+from {context["project_name_snake"]}.monitoring.alerts import AlertManager, SlackAlert, AlertSeverity
+from {context["project_name_snake"]}.monitoring.metrics import MetricsCollector
+
+
+# =============================================================================
+# Latency Thresholds - customize these values
+# =============================================================================
+
+# Latency thresholds (milliseconds)
+LATENCY_P50_WARNING = 100.0  # Alert if p50 latency exceeds this
+LATENCY_P99_WARNING = 500.0  # Alert if p99 latency exceeds this
+
+# Error rate thresholds (percentage)
+ERROR_RATE_WARNING = 1.0     # Alert if error rate exceeds 1%
+ERROR_RATE_CRITICAL = 5.0    # Critical alert if error rate exceeds 5%
+
+# TODO: Future - drift thresholds for realtime (requires request sampling)
+# DRIFT_THRESHOLD = 0.3      # Alert if drift score exceeds 30%
+
+
+# =============================================================================
+# Alert Configuration
+# =============================================================================
+
+def create_alert_manager() -> AlertManager:
+    \"\"\"Create and configure the alert manager.
+    
+    To enable Slack alerts:
+    1. Create a Slack incoming webhook
+    2. Set SLACK_WEBHOOK_URL environment variable
+    
+    Example:
+        export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+    \"\"\"
+    alerts = AlertManager(cooldown_seconds=300)  # 5 min between duplicate alerts
+    
+    # Add Slack if configured
+    slack_webhook = os.getenv("SLACK_WEBHOOK_URL")
+    if slack_webhook:
+        alerts.add_slack(
+            webhook_url=slack_webhook,
+            channel=os.getenv("SLACK_CHANNEL"),  # Optional channel override
+        )
+    
+    return alerts
+
+
+# =============================================================================
+# Drift Detection Configuration (Optional - requires Evidently)
+# =============================================================================
+
+def create_drift_detector(reference_data=None) -> DriftDetector:
+    \"\"\"Create and configure the drift detector.
+    
+    Args:
+        reference_data: Training data to compare production data against.
+                       Load this from your data warehouse or artifact store.
+    
+    Example:
+        import pandas as pd
+        training_df = pd.read_parquet("data/training_sample.parquet")
+        detector = create_drift_detector(reference_data=training_df)
+    \"\"\"
+    return DriftDetector(
+        reference_data=reference_data,
+        # TODO: Specify your feature types
+        # categorical_features=["category", "region"],
+        # numerical_features=["age", "income", "score"],
+        # target_column="prediction",
+    )
+
+
+# =============================================================================
+# Threshold Monitoring (call periodically or after each request)
+# =============================================================================
+
+def check_thresholds(metrics: MetricsCollector, alerts: AlertManager) -> None:
+    \"\"\"Check metrics against thresholds and send alerts if breached.
+    
+    Call this periodically (e.g., every minute) or after batch processing.
+    
+    Example:
+        # In app.py or a background task
+        from {context["project_name_snake"]}.sdk.monitoring_config import (
+            create_alert_manager, check_thresholds
+        )
+        from {context["project_name_snake"]}.monitoring.metrics import metrics
+        
+        alerts = create_alert_manager()
+        check_thresholds(metrics, alerts)
+    \"\"\"
+    # Check latency
+    p50 = metrics.get_latency_p50()
+    if p50 > LATENCY_P50_WARNING:
+        alerts.alert(
+            title="High P50 Latency",
+            message=f"P50 latency is {{p50:.1f}}ms (threshold: {{LATENCY_P50_WARNING}}ms)",
+            severity=AlertSeverity.WARNING,
+            metadata={{"current": p50, "threshold": LATENCY_P50_WARNING}},
+        )
+    
+    p99 = metrics.get_latency_p99()
+    if p99 > LATENCY_P99_WARNING:
+        alerts.alert(
+            title="High P99 Latency",
+            message=f"P99 latency is {{p99:.1f}}ms (threshold: {{LATENCY_P99_WARNING}}ms)",
+            severity=AlertSeverity.WARNING,
+            metadata={{"current": p99, "threshold": LATENCY_P99_WARNING}},
+        )
+    
+    # Check error rate
+    error_count = metrics.get_error_count()
+    request_count = metrics.get_request_count()
+    if request_count > 0:
+        error_rate = (error_count / request_count) * 100
+        if error_rate > ERROR_RATE_CRITICAL:
+            alerts.alert(
+                title="Critical Error Rate",
+                message=f"Error rate is {{error_rate:.1f}}% (threshold: {{ERROR_RATE_CRITICAL}}%)",
+                severity=AlertSeverity.CRITICAL,
+                metadata={{"error_rate": error_rate, "errors": error_count, "requests": request_count}},
+            )
+        elif error_rate > ERROR_RATE_WARNING:
+            alerts.alert(
+                title="Elevated Error Rate",
+                message=f"Error rate is {{error_rate:.1f}}% (threshold: {{ERROR_RATE_WARNING}}%)",
+                severity=AlertSeverity.WARNING,
+                metadata={{"error_rate": error_rate}},
+            )
+'''
+
+    def _generate_sdk_batch_monitoring_config(self, context: dict) -> str:
+        """Generate SDK monitoring_config.py for batch jobs - focuses on drift + alerts."""
+        return f'''"""Batch monitoring configuration - drift detection and alerts.
+
+Batch jobs focus on:
+- Drift detection (data drift between training and scoring data)
+- Alerts for drift/failures (Slack/email notifications)
+
+Unlike realtime endpoints, batch jobs don't need latency tracking.
+"""
+
+import os
+import pandas as pd
+
+
+# =============================================================================
+# Drift Thresholds - customize these values
+# =============================================================================
+
+# Feature drift threshold (percentage of features drifted)
+FEATURE_DRIFT_THRESHOLD = 0.3     # Alert if >30% of features show drift
+
+# Dataset drift threshold (PSI/KS statistic)
+DATASET_DRIFT_THRESHOLD = 0.1     # Alert if dataset drift score > 0.1
+
+# Prediction drift threshold
+PREDICTION_DRIFT_THRESHOLD = 0.2  # Alert if prediction distribution shifts
+
+
+# =============================================================================
+# Alert Configuration
+# =============================================================================
+
+def create_alert_manager():
+    \"\"\"Create alert manager for batch job notifications.
+    
+    To enable Slack alerts:
+        export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+    \"\"\"
+    from {context["project_name_snake"]}.monitoring.alerts import AlertManager
+    
+    alerts = AlertManager(cooldown_seconds=0)  # No cooldown for batch (runs periodically)
+    
+    slack_webhook = os.getenv("SLACK_WEBHOOK_URL")
+    if slack_webhook:
+        alerts.add_slack(
+            webhook_url=slack_webhook,
+            channel=os.getenv("SLACK_CHANNEL"),
+        )
+    
+    return alerts
+
+
+# =============================================================================
+# Drift Detection - integrate into your pipeline.run() method
+# =============================================================================
+
+def create_drift_detector(reference_data: pd.DataFrame = None):
+    \"\"\"Create drift detector for batch scoring.
+    
+    Args:
+        reference_data: Training data sample to compare against.
+                       Load from your artifact store or data warehouse.
+    
+    Usage in pipeline.py:
+        from .monitoring_config import create_drift_detector, check_drift
+        
+        def run(self):
+            # Load reference data (training sample)
+            reference = pd.read_parquet("data/training_sample.parquet")
+            detector = create_drift_detector(reference_data=reference)
+            
+            # Load scoring data
+            scoring_data = self.data_source.load()
+            
+            # Check for drift before scoring
+            drift_result = check_drift(detector, scoring_data)
+            if drift_result["has_drift"]:
+                # Log warning or alert
+                pass
+            
+            # Continue with scoring...
+    \"\"\"
+    from {context["project_name_snake"]}.monitoring.drift import DriftDetector
+    
+    return DriftDetector(
+        reference_data=reference_data,
+        # TODO: Configure feature types for your model
+        # categorical_features=["category", "region"],
+        # numerical_features=["feature_1", "feature_2"],
+        # target_column="prediction",
+    )
+
+
+def check_drift(detector, current_data: pd.DataFrame, alert_manager=None) -> dict:
+    \"\"\"Check for drift and optionally send alerts.
+    
+    Args:
+        detector: DriftDetector instance with reference data
+        current_data: Current batch data to check for drift
+        alert_manager: Optional AlertManager for notifications
+    
+    Returns:
+        Dict with drift results and alert status
+    \"\"\"
+    from {context["project_name_snake"]}.monitoring.alerts import AlertSeverity
+    
+    result = detector.calculate_drift(current_data)
+    
+    has_drift = False
+    if "drift_share" in result:
+        has_drift = result["drift_share"] > FEATURE_DRIFT_THRESHOLD
+        
+        if has_drift and alert_manager:
+            alert_manager.alert(
+                title="Data Drift Detected",
+                message=f"{{result['drift_share']*100:.1f}}% of features show drift (threshold: {{FEATURE_DRIFT_THRESHOLD*100}}%)",
+                severity=AlertSeverity.WARNING,
+                metadata={{
+                    "drift_share": result["drift_share"],
+                    "threshold": FEATURE_DRIFT_THRESHOLD,
+                }},
+            )
+    
+    return {{
+        "has_drift": has_drift,
+        "drift_result": result,
+    }}
+
+
+def send_pipeline_completion_alert(alert_manager, result: dict, success: bool = True):
+    \"\"\"Send alert when pipeline completes.
+    
+    Usage in pipeline.py:
+        from .monitoring_config import create_alert_manager, send_pipeline_completion_alert
+        
+        def run(self):
+            alerts = create_alert_manager()
+            result = {{"samples_scored": 1000}}
+            send_pipeline_completion_alert(alerts, result)
+    \"\"\"
+    from {context["project_name_snake"]}.monitoring.alerts import AlertSeverity
+    
+    if success:
+        alert_manager.alert(
+            title="Batch Pipeline Complete",
+            message=f"Successfully processed {{result.get('samples_scored', 'N/A')}} samples",
+            severity=AlertSeverity.INFO,
+            metadata=result,
+        )
+    else:
+        alert_manager.alert(
+            title="Batch Pipeline Failed",
+            message=f"Pipeline failed: {{result.get('error', 'Unknown error')}}",
+            severity=AlertSeverity.CRITICAL,
+            metadata=result,
+        )
+'''
+
+    def _generate_sdk_pipeline(self, context: dict) -> str:
+        """Generate SDK pipeline.py file for batch processing."""
+        return f'''"""Pipeline definition - implement your batch processing logic."""
+
+from geronimo.batch import BatchPipeline, Schedule
+from .model import ProjectModel
+from .data_sources import scoring_data  # Import scoring data source
+
+
+class ScoringPipeline(BatchPipeline):
+    """Batch scoring pipeline.
+    
+    Implement the run() method with your batch processing logic.
+    The pipeline will be executed on the defined schedule.
+    Uses scoring_data from data_sources.py to load input data.
+    
+    Example:
+        def run(self):
+            # Load data from configured source
+            data = scoring_data.load()
+            
+            # Transform and predict
+            X = self.model.features.transform(data)
+            predictions = self.model.predict(X)
+            
+            # Save results
+            results = data.assign(prediction=predictions)
+            return self.save_results(results)
+    """
+
+    name = "{context["project_name"]}-scoring"
+    model_class = ProjectModel
+    schedule = Schedule.daily(hour=6, minute=0)
+    data_source = scoring_data  # Connect to scoring data source
+
+    def run(self):
+        """Execute batch processing.
+        
+        Returns:
+            Dict with execution results
+        """
+        # TODO: Implement batch logic
+        # Load data from configured source
+        # data = self.data_source.load()
+        # 
+        # Transform features
+        # X = self.model.features.transform(data)
+        # 
+        # Generate predictions
+        # predictions = self.model.predict(X)
+        # 
+        # Save results
+        # results = data.assign(prediction=predictions)
+        # output_path = self.save_results(results)
+        # return {{"samples_scored": len(results), "output_path": output_path}}
+        raise NotImplementedError("Implement run()")
+'''
+
+    def _generate_app_wrapper(self, context: dict) -> str:
+        """Generate thin FastAPI wrapper that imports SDK endpoint."""
+        return f'''"""FastAPI application - thin wrapper around SDK endpoint.
+
+This app integrates:
+- SDK endpoint for predictions
+- Monitoring middleware for latency/error tracking
+- Metrics collector for CloudWatch/custom backends
+"""
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Any
+
+from {context["project_name_snake"]}.sdk.endpoint import PredictEndpoint
+from {context["project_name_snake"]}.monitoring.middleware import MonitoringMiddleware
+from {context["project_name_snake"]}.monitoring.metrics import MetricsCollector
+
+
+# =============================================================================
+# Configuration - customize these values
+# =============================================================================
+
+PROJECT_NAME = "{context["project_name"]}"
+
+# Metrics backend: "cloudwatch", "local", or custom
+METRICS_BACKEND = "local"  # TODO: Change to "cloudwatch" for production
+
+
+# =============================================================================
+# Initialize components
+# =============================================================================
+
+# Initialize metrics collector
+# For CloudWatch: MetricsCollector(project_name=PROJECT_NAME, namespace="MLModels")
+metrics = MetricsCollector(project_name=PROJECT_NAME)
+
+# Lazy-load endpoint
+_endpoint = None
+
+
+def get_endpoint():
+    global _endpoint
+    if _endpoint is None:
+        _endpoint = PredictEndpoint()
+        _endpoint.load()
+    return _endpoint
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    \"\"\"Application lifecycle - load model on startup.\"\"\"
+    # Startup: pre-load model for faster first request
+    get_endpoint()
+    yield
+    # Shutdown: cleanup if needed
+
+
+# =============================================================================
+# FastAPI App
+# =============================================================================
+
+app = FastAPI(
+    title=PROJECT_NAME,
+    description="ML model serving API with monitoring",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS middleware - customize origins for production
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # TODO: Restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Monitoring middleware - tracks latency, errors, request counts
+app.add_middleware(MonitoringMiddleware, collector=metrics)
+
+
+# =============================================================================
+# Request/Response Models
+# =============================================================================
+
+class PredictRequest(BaseModel):
+    \"\"\"Prediction request schema.\"\"\"
+    features: dict[str, Any]
+
+
+class PredictResponse(BaseModel):
+    \"\"\"Prediction response schema.\"\"\"
+    prediction: Any
+
+
+# =============================================================================
+# Endpoints
+# =============================================================================
+
+@app.get("/health")
+def health():
+    \"\"\"Health check endpoint.\"\"\"
+    return {{"status": "ok"}}
+
+
+@app.get("/metrics")
+def get_metrics():
+    \"\"\"Get current metrics summary.
+    
+    Returns latency percentiles, request counts, and error rates.
+    \"\"\"
+    return {{
+        "latency_p50_ms": metrics.get_latency_p50(),
+        "latency_p99_ms": metrics.get_latency_p99(),
+        "request_count": metrics.get_request_count(),
+        "error_count": metrics.get_error_count(),
+    }}
+
+
+@app.post("/predict", response_model=PredictResponse)
+def predict(request: PredictRequest):
+    \"\"\"Generate prediction from model.
+    
+    The endpoint handles:
+    1. preprocess() - transform request to features
+    2. model.predict() - generate prediction
+    3. postprocess() - format response
+    
+    Latency and errors are automatically tracked by MonitoringMiddleware.
+    \"\"\"
+    try:
+        endpoint = get_endpoint()
+        result = endpoint.handle(request.model_dump())
+        return PredictResponse(prediction=result)
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+'''
+
+    def _generate_flow_wrapper(self, context: dict) -> str:
+        """Generate thin Metaflow wrapper that imports SDK pipeline."""
+        return f'''"""Metaflow flow - thin wrapper around SDK pipeline.
+
+Run locally:
+    python -m {context["project_name_snake"]}.flow run
+
+Deploy to Step Functions:
+    python -m {context["project_name_snake"]}.flow step-functions create
+"""
+
+from metaflow import FlowSpec, step, schedule
+from {context["project_name_snake"]}.sdk.pipeline import ScoringPipeline
+
+
+@schedule(daily=True)
+class ScoringFlow(FlowSpec):
+    """Batch scoring flow - wraps SDK pipeline."""
+
+    @step
+    def start(self):
+        """Initialize pipeline and load model."""
+        self.pipeline = ScoringPipeline()
+        self.pipeline.initialize()
+        print(f"Initialized: {{self.pipeline}}")
+        self.next(self.run_pipeline)
+
+    @step
+    def run_pipeline(self):
+        """Execute the SDK pipeline."""
+        self.result = self.pipeline.execute()
+        print(f"Result: {{self.result}}")
+        self.next(self.end)
+
+    @step
+    def end(self):
+        """Flow complete."""
+        print(f"Pipeline complete: {{self.result}}")
+
+
+if __name__ == "__main__":
+    ScoringFlow()
+'''
+
+    def _generate_test_sdk(self, context: dict) -> str:
+        """Generate SDK tests."""
+        return f'''"""Tests for SDK components."""
+
+import pytest
+
+
+class TestProjectModel:
+    """Tests for ProjectModel."""
+
+    def test_model_import(self):
+        """Test model can be imported."""
+        from {context["project_name_snake"]}.sdk.model import ProjectModel
+        
+        model = ProjectModel()
+        assert model.name == "{context["project_name"]}"
+
+
+class TestProjectFeatures:
+    """Tests for ProjectFeatures."""
+
+    def test_features_import(self):
+        """Test features can be imported."""
+        from {context["project_name_snake"]}.sdk.features import ProjectFeatures
+        
+        features = ProjectFeatures()
+        assert features is not None
+'''
+
+    def _generate_api_code(self, context: dict, pkg_dir: Path) -> None:
+        """Generate FastAPI structure for realtime serving."""
         # API module
         api_dir = pkg_dir / "api"
         api_dir.mkdir(exist_ok=True)
@@ -201,9 +1049,6 @@ class ProjectGenerator(BaseGenerator):
 
         # Generate agent package
         self._generate_agent_package(context)
-
-
-
 
         # Routes
         routes_dir = api_dir / "routes"
@@ -226,21 +1071,206 @@ class ProjectGenerator(BaseGenerator):
         schemas_content = self._generate_schemas(context)
         self.write_file(models_dir / "schemas.py", schemas_content)
 
-        # ML module
-        ml_dir = pkg_dir / "ml"
-        ml_dir.mkdir(exist_ok=True)
-        self.write_file(ml_dir / "__init__.py", '"""ML module."""\n')
+    def _generate_batch_code(self, context: dict, pkg_dir: Path) -> None:
+        """Generate Metaflow batch pipeline structure."""
+        # Flows directory at project root
+        flows_dir = self.project_dir / "batch" / "flows"
+        flows_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Data and output directories
+        (self.project_dir / "batch" / "data").mkdir(exist_ok=True)
+        (self.project_dir / "batch" / "output").mkdir(exist_ok=True)
+        
+        # Generate Metaflow flow
+        flow_content = self._generate_metaflow_flow(context)
+        self.write_file(flows_dir / "scoring_flow.py", flow_content)
+        
+        # Generate pipeline class in package
+        pipeline_content = self._generate_pipeline_class(context)
+        self.write_file(pkg_dir / "pipeline.py", pipeline_content)
 
-        predictor_content = self._generate_predictor(context)
-        self.write_file(ml_dir / "predictor.py", predictor_content)
+    def _generate_metaflow_flow(self, context: dict) -> str:
+        """Generate Metaflow flow file."""
+        return f'''"""Metaflow flow for {context["project_name"]} batch scoring.
 
-        # Tests
-        tests_dir = self.project_dir / "tests"
-        tests_dir.mkdir(exist_ok=True)
-        self.write_file(tests_dir / "__init__.py", '"""Tests package."""\n')
+Run locally:
+    python batch/flows/scoring_flow.py run
 
-        test_api_content = self._generate_test_api(context)
-        self.write_file(tests_dir / "test_api.py", test_api_content)
+Deploy to Step Functions:
+    python batch/flows/scoring_flow.py step-functions create
+"""
+
+from metaflow import FlowSpec, step, Parameter, schedule
+
+
+@schedule(daily=True)
+class ScoringFlow(FlowSpec):
+    """Daily batch scoring flow."""
+
+    input_path = Parameter(
+        "input_path",
+        help="Path to input data",
+        default="batch/data/input.csv",
+    )
+    output_path = Parameter(
+        "output_path",
+        help="Path for output predictions",
+        default="batch/output/predictions.parquet",
+    )
+
+    @step
+    def start(self):
+        """Initialize the flow."""
+        print(f"Starting batch scoring for {context["project_name"]}")
+        self.next(self.load_data)
+
+    @step
+    def load_data(self):
+        """Load data to score."""
+        import pandas as pd
+        from pathlib import Path
+
+        path = Path(self.input_path)
+        if path.exists():
+            self.data = pd.read_csv(path)
+        else:
+            # Generate sample data
+            import numpy as np
+            self.data = pd.DataFrame({{
+                "feature_1": np.random.randn(100),
+                "feature_2": np.random.randn(100),
+            }})
+        print(f"Loaded {{len(self.data)}} samples")
+        self.next(self.predict)
+
+    @step
+    def predict(self):
+        """Generate predictions."""
+        import pandas as pd
+        from {context["project_name_snake"]}.ml.predictor import ModelPredictor
+
+        predictor = ModelPredictor()
+        predictor.load()
+        
+        predictions = predictor.predict(self.data)
+        
+        self.results = self.data.copy()
+        self.results["prediction"] = predictions
+        self.results["scored_at"] = pd.Timestamp.now().isoformat()
+        
+        print(f"Generated {{len(self.results)}} predictions")
+        self.next(self.save_results)
+
+    @step
+    def save_results(self):
+        """Save predictions to storage."""
+        from pathlib import Path
+
+        path = Path(self.output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.results.to_parquet(path, index=False)
+        print(f"Saved results to {{path}}")
+        self.next(self.end)
+
+    @step
+    def end(self):
+        """Flow complete."""
+        print(f"Scored {{len(self.results)}} samples")
+
+
+if __name__ == "__main__":
+    ScoringFlow()
+'''
+
+    def _generate_pipeline_class(self, context: dict) -> str:
+        """Generate BatchPipeline class."""
+        return f'''"""Batch pipeline using Geronimo BatchPipeline."""
+
+from geronimo.batch import BatchPipeline, Schedule
+
+
+class ScoringPipeline(BatchPipeline):
+    """Daily batch scoring pipeline.
+    
+    Example:
+        pipeline = ScoringPipeline()
+        pipeline.initialize()
+        result = pipeline.execute()
+    """
+    
+    name = "{context["project_name"]}-scoring"
+    schedule = Schedule.daily(hour=6, minute=0)
+    
+    def run(self):
+        """Main pipeline logic."""
+        import pandas as pd
+        from pathlib import Path
+        from .ml.predictor import ModelPredictor
+        
+        # Load predictor
+        predictor = ModelPredictor()
+        predictor.load()
+        
+        # Load data
+        data_path = Path("batch/data/input.csv")
+        if data_path.exists():
+            data = pd.read_csv(data_path)
+        else:
+            # Sample data
+            import numpy as np
+            data = pd.DataFrame({{
+                "feature_1": np.random.randn(100),
+                "feature_2": np.random.randn(100),
+            }})
+        
+        # Predict
+        predictions = predictor.predict(data)
+        
+        # Build results
+        results = data.copy()
+        results["prediction"] = predictions
+        results["scored_at"] = pd.Timestamp.now().isoformat()
+        
+        # Save
+        output_path = self.save_results(results)
+        
+        return {{
+            "samples_scored": len(results),
+            "output_path": output_path,
+        }}
+
+
+if __name__ == "__main__":
+    pipeline = ScoringPipeline()
+    pipeline.initialize()
+    print(pipeline.execute())
+'''
+
+    def _generate_test_batch(self, context: dict) -> str:
+        """Generate batch pipeline tests."""
+        return f'''"""Tests for batch pipeline."""
+
+import pytest
+
+
+class TestScoringPipeline:
+    """Tests for ScoringPipeline."""
+
+    def test_pipeline_exists(self):
+        """Test pipeline can be imported."""
+        from {context["project_name_snake"]}.pipeline import ScoringPipeline
+        
+        pipeline = ScoringPipeline()
+        assert pipeline.name == "{context["project_name"]}-scoring"
+
+    def test_pipeline_schedule(self):
+        """Test pipeline has schedule."""
+        from {context["project_name_snake"]}.pipeline import ScoringPipeline
+        
+        pipeline = ScoringPipeline()
+        assert pipeline.schedule is not None
+        assert "6" in pipeline.schedule.cron_expression
+'''
 
 
 

@@ -1883,17 +1883,25 @@ models/*.h5
 
         train_script = f'''"""Training script for {context["project_name"]}.
 
+This script demonstrates the full training workflow:
+1. Load data from SDK data_sources
+2. Initialize model with SDK features
+3. Fit transformers and train model
+4. Save artifacts to ArtifactStore
+
 Usage:
     uv run python -m {context["project_name_snake"]}.train
 """
 
 from pathlib import Path
-
 import pandas as pd
 
 from geronimo.artifacts import ArtifactStore
 from geronimo.models import HyperParams
+
+# Import from your SDK
 from {context["project_name_snake"]}.sdk.model import ProjectModel
+from {context["project_name_snake"]}.sdk.data_sources import training_data
 
 
 def main():
@@ -1902,33 +1910,58 @@ def main():
     print("Model Training")
     print("=" * 50)
 
-    # TODO: Load your training data
-    # from {context["project_name_snake"]}.sdk.data_sources import training_data
-    # df = training_data.load()
+    # =========================================================================
+    # 1. Load data from configured data source
+    # =========================================================================
     print("\\n1. Loading data...")
+    
+    # Option A: Load from SDK data_sources (recommended)
+    # This uses the DataSource defined in sdk/data_sources.py
+    # df = training_data.load()
+    
+    # Option B: Direct file load (for development/testing)
     # df = pd.read_csv("data/train.csv")
-    raise NotImplementedError("Load your training data here")
+    
+    # TODO: Uncomment one of the options above
+    raise NotImplementedError(
+        "Configure your data source in sdk/data_sources.py, then uncomment:\\n"
+        "  df = training_data.load()"
+    )
 
-    # TODO: Prepare target variable
+    # =========================================================================
+    # 2. Prepare features and target
+    # =========================================================================
+    print("\\n2. Preparing data...")
+    
+    # TODO: Update with your target column name
     # y = df.pop("target")
+    raise NotImplementedError("Set your target column: y = df.pop('your_target_column')")
 
-    # Initialize model
-    print("\\n2. Initializing model...")
+    # =========================================================================
+    # 3. Initialize and train model
+    # =========================================================================
+    print("\\n3. Training model...")
     model = ProjectModel()
-
-    # Fit features
+    
+    # Fit feature transformers (from sdk/features.py)
     print("   Fitting feature transformers...")
     model.features.fit(df)
     X = model.features.transform(df)
-
-    # Train
-    print("\\n3. Training...")
-    params = HyperParams(n_estimators=100, max_depth=5)
+    
+    # Train with hyperparameters
+    # TODO: Customize your hyperparameters
+    params = HyperParams(
+        n_estimators=100,
+        max_depth=5,
+    )
     model.train(X, y, params)
 
-    # Save
+    # =========================================================================
+    # 4. Save model artifacts
+    # =========================================================================
     print("\\n4. Saving artifacts...")
     models_dir = Path(__file__).parent.parent.parent / "models"
+    
     store = ArtifactStore(
         project="{context["project_name"]}",
         version="1.0.0",

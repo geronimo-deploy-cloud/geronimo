@@ -1,105 +1,31 @@
-# Geronimo
+# Geronimo: The Declarative ML Framework For AI
 
-**ML Development Framework** — Build, train, and deploy ML models with production-ready infrastructure.
+Build, train, and deploy ML models with production-ready infrastructure and Generative AI MCP support from the start.
 
-Geronimo is like **dbt for ML**: a framework developers build around, not just deployment scaffolding.
+Geronimo is like **dbt for AI**:
 
-## Features
+## Why Geronimo?
 
-| Category | Capabilities |
-|----------|--------------|
-| **SDK** | DataSource, FeatureSet, Model, Endpoint, BatchPipeline |
-| **Artifacts** | Versioned storage for models, encoders, transformers (local/S3/MLflow) |
-| **Deployment** | Terraform, Docker, CI/CD pipelines, real-time + batch |
-| **Monitoring** | Metrics, drift detection, alerting |
-| **Integrations** | MLflow, Snowflake, Postgres, SQL Server, MCP |
+### 🚀 Ship Models Faster
 
-## Installation
+Stop writing boilerplate. One command creates a runnable project with FastAPI endpoints, monitoring, and CI/CD ready to go.
 
 ```bash
-# Core installation
-pip install geronimo
-
-# With optional integrations
-pip install geronimo[mlflow]      # MLflow artifact store
-pip install geronimo[databases]   # Snowflake, Postgres, SQL Server
-pip install geronimo[all]         # Everything
+geronimo init --name fraud-detector
+cd fraud-detector && uv sync
+uvicorn fraud_detector.app:app --reload  # API running in seconds
 ```
 
-Or from source:
-```bash
-git clone https://github.com/your-org/geronimo.git
-cd geronimo && uv sync
-```
+### 🧩 Simpler Development
 
-## Quick Start
-
-### Option A: New Project
-
-```bash
-# Initialize a new ML project
-geronimo init --name credit-risk-model
-
-cd credit-risk-model
-uv sync
-uv run start
-```
-
-### Option B: Import Existing Project
-
-```bash
-cd /path/to/existing-project
-geronimo import .
-```
-
-This generates:
-- `geronimo.yaml` — Deployment configuration
-- `geronimo_sdk/` — SDK wrappers with TODO tags for manual config
-
-## SDK Overview
-
-### Data Layer
+Define your model's **what**, not the **how**. The SDK handles preprocessing, artifact management, and deployment wiring.
 
 ```python
-from geronimo.data import DataSource, Query
+class FraudModel(Model):
+    name = "fraud-detector"
+    features = TransactionFeatures()
 
-training_data = DataSource(
-    name="features",
-    source="snowflake",
-    query=Query.from_file("queries/training.sql"),
-)
-
-df = training_data.load(start_date="2024-01-01")
-```
-
-### Feature Engineering
-
-```python
-from geronimo.features import FeatureSet, Feature
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-
-class CustomerFeatures(FeatureSet):
-    age = Feature(dtype="numeric", transformer=StandardScaler())
-    segment = Feature(dtype="categorical", encoder=OneHotEncoder())
-
-# Training: fit + transform
-X = features.fit_transform(train_df)
-
-# Production: transform only (uses fitted encoders)
-X = features.transform(prod_df)
-```
-
-### Model Definition
-
-```python
-from geronimo.models import Model, HyperParams
-
-class CreditRiskModel(Model):
-    name = "credit-risk"
-    version = "1.2.0"
-    features = CustomerFeatures()
-
-    def train(self, X, y, params: HyperParams):
+    def train(self, X, y, params):
         self.estimator = XGBClassifier(**params.to_dict())
         self.estimator.fit(X, y)
 
@@ -107,104 +33,99 @@ class CreditRiskModel(Model):
         return self.estimator.predict_proba(X)
 ```
 
-### Artifact Storage
+### 🤖 GenAI Agent-Ready
 
-```python
-from geronimo.artifacts import ArtifactStore
+Every project is automatically exposed as an [MCP tool](https://modelcontextprotocol.io). AI agents like Claude can call your models directly—no extra work required.
 
-# Save during training
-store = ArtifactStore(project="credit-risk", version="1.2.0")
-store.save("model", model.estimator)
-store.save("encoder", features.encoder)
-
-# Load in production
-store = ArtifactStore.load(project="credit-risk", version="1.2.0")
-model = store.get("model")
+```json
+{
+  "mcpServers": {
+    "fraud-detector": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "fraud_detector.agent.server"]
+    }
+  }
+}
 ```
 
-With MLflow (`pip install geronimo[mlflow]`):
-```python
-from geronimo.artifacts import MLflowArtifactStore
+> "Analyze this transaction for fraud risk"  
+> → Claude calls your model → Returns risk score
 
-store = MLflowArtifactStore(project="credit-risk", version="1.2.0")
-store.save("model", model)
-store.log_metrics({"auc": 0.95})
+---
+
+## Getting Started
+
+```bash
+pip install geronimo
+geronimo init --name my-model --template realtime
 ```
 
-### Production Endpoints
+Choose your template:
 
-```python
-from geronimo.serving import Endpoint
+| Template | Use Case | Output |
+|----------|----------|--------|
+| `realtime` | REST APIs, low-latency | FastAPI + monitoring |
+| `batch` | Scheduled jobs, bulk scoring | Metaflow + drift detection |
+| `both` | APIs + scheduled pipelines | Everything |
 
-class PredictEndpoint(Endpoint):
-    model_class = CreditRiskModel
+## What You Get
 
-    def preprocess(self, request):
-        return self.model.features.transform(request["data"])
+A complete, runnable project structure:
 
-    def postprocess(self, prediction):
-        return {"score": float(prediction[0])}
+```
+my-model/
+├── src/my_model/
+│   ├── sdk/                    # Define your model here
+│   │   ├── model.py            # train() + predict()
+│   │   ├── features.py         # Feature transformations
+│   │   ├── endpoint.py         # Request/response handling
+│   │   └── monitoring_config.py
+│   ├── app.py                  # FastAPI (auto-generated)
+│   └── train.py                # Training script
+├── geronimo.yaml               # Deployment config
+└── models/                     # Saved artifacts
 ```
 
-### Batch Pipelines
+**Focus on the `sdk/` folder.** Everything else is generated for you.
 
-```python
-from geronimo.batch import BatchPipeline, Schedule
+## Deploy to Production
 
-class DailyScoringPipeline(BatchPipeline):
-    model_class = CreditRiskModel
-    schedule = Schedule.daily(hour=6)
-
-    def run(self):
-        data = self.model.features.data_source.load()
-        predictions = self.model.predict(data)
-        self.save_results(predictions)
+```bash
+geronimo generate all
 ```
 
-## CLI Commands
+Generates:
+- **Terraform** — ECS Fargate infrastructure
+- **Dockerfile** — Optimized for ML serving
+- **CI/CD** — Azure DevOps / GitHub Actions pipelines
 
-| Command | Description |
-|---------|-------------|
-| `geronimo init` | Create new ML project |
-| `geronimo import` | Import existing project with SDK wrappers |
-| `geronimo generate all` | Generate Terraform, Docker, CI/CD |
-| `geronimo generate batch` | Generate Metaflow/Airflow pipelines |
-| `geronimo validate` | Validate configuration |
-| `geronimo monitor capture-reference` | Capture baseline for drift detection |
-| `geronimo monitor detect-drift` | Compare current data to baseline |
+## Integrations
 
-## Configuration
-
-```yaml
-# geronimo.yaml
-project:
-  name: credit-risk-model
-  version: "1.2.0"
-
-artifacts:
-  store: s3://ml-artifacts/
-
-batch:
-  enabled: true
-  backend: step-functions
-  jobs:
-    - name: daily_scoring
-      schedule: "0 6 * * *"
-
-monitoring:
-  drift_detection:
-    enabled: true
-    sampling_rate: 0.05
-    window_days: 7
-```
+| Integration | Purpose |
+|-------------|---------|
+| **MLflow** | Experiment tracking, artifact store |
+| **Snowflake/Postgres** | Data sources for training |
+| **CloudWatch** | Production metrics |
+| **Slack** | Alerts for drift/errors |
+| **MCP** | AI agent tool exposure |
 
 ## Documentation
 
-- [Getting Started](docs/tutorials/getting_started.md)
-- [Batch Jobs](docs/tutorials/batch_jobs.md)
-- [Drift Detection](docs/tutorials/monitoring.md)
+- [Getting Started: Realtime](docs/tutorials/getting_started_realtime.md)
+- [Getting Started: Batch](docs/tutorials/getting_started_batch.md)
+- [Monitoring & Drift Detection](docs/tutorials/monitoring.md)
 - [MCP Integration](docs/tutorials/mcp_integration.md)
+- [SDK Reference](docs/tutorials/sdk_reference.md)
 
-## License
+## Installation
 
-MIT
+```bash
+pip install geronimo                  # Core
+pip install geronimo[mlflow]          # + MLflow
+pip install geronimo[databases]       # + Snowflake, Postgres
+pip install geronimo[all]             # Everything
+```
+
+---
+
+**Apache 2.0 License** • [GitHub](https://github.com/geronimo-deploy-cloud/geronimo)

@@ -11,27 +11,52 @@ Geronimo is like **dbt for AI**:
 Stop writing boilerplate. One command creates a runnable project with FastAPI endpoints, monitoring, and CI/CD ready to go.
 
 ```bash
-geronimo init --name fraud-detector
-cd fraud-detector && uv sync
-uvicorn fraud_detector.app:app --reload  # API running in seconds
+geronimo init --name iris-realtime
+cd iris-realtime && uv sync
+uvicorn iris-realtime.app:app --reload  # API running in seconds
 ```
 
 ### 🧩 Simpler Development
 
-Define your model's **what**, not the **how**. The SDK handles preprocessing, artifact management, and deployment wiring.
+Define your model's **what**, not the **how**. The SDK has 5 components—each maps to one file:
 
-```python
-class FraudModel(Model):
-    name = "fraud-detector"
-    features = TransactionFeatures()
+| Component | File | Purpose |
+|-----------|------|---------|
+| **DataSource** | `data_sources.py` | Where your data comes from |
+| **FeatureSet** | `features.py` | How to transform raw data |
+| **Model** | `model.py` | Training and prediction logic |
+| **Endpoint** | `endpoint.py` | Request/response handling (realtime) |
+| **Pipeline** | `pipeline.py` | Batch job orchestration (batch) |
 
-    def train(self, X, y, params):
-        self.estimator = XGBClassifier(**params.to_dict())
-        self.estimator.fit(X, y)
+# data_sources.py — Declare your data
+training_data = DataSource(name="training", source="snowflake", query=Query.from_file("train.sql"))
 
-    def predict(self, X):
-        return self.estimator.predict_proba(X)
+# features.py — Define transformations
+class IrisFeatures(FeatureSet):
+    sepal_length = Feature(dtype="numeric", transformer=StandardScaler())
+    sepal_width = Feature(dtype="numeric", transformer=StandardScaler())
+    petal_length = Feature(dtype="numeric", transformer=StandardScaler())
+    petal_width = Feature(dtype="numeric", transformer=StandardScaler())
+
+# model.py — Train and predict
+class IrisModel(Model):
+    name = "iris-realtime"
+    features = IrisFeatures()
+    
+    def train(self, X, y, params): ...
+    def predict(self, X): ...
+
+# endpoint.py — Handle requests (realtime)
+class PredictEndpoint(Endpoint):
+    def preprocess(self, request): ...
+    def postprocess(self, prediction): ...
+
+# pipeline.py — Run batch jobs
+class ScoringPipeline(BatchPipeline):
+    schedule = Schedule.daily(hour=6)
+    def run(self): ...
 ```
+
 
 ### 🤖 GenAI Agent-Ready
 
@@ -40,9 +65,9 @@ Every project is automatically exposed as an [MCP tool](https://modelcontextprot
 ```json
 {
   "mcpServers": {
-    "fraud-detector": {
+    "iris-realtime": {
       "command": "uv",
-      "args": ["run", "python", "-m", "fraud_detector.agent.server"]
+      "args": ["run", "python", "-m", "iris-realtime.agent.server"]
     }
   }
 }

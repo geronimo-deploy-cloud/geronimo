@@ -29,29 +29,37 @@ Define your model's **what**, not the **how**. The SDK has 5 components—each m
 | **Pipeline** | `pipeline.py` | Batch job orchestration (batch) |
 
 # data_sources.py — Declare your data
+```
 training_data = DataSource(name="training", source="snowflake", query=Query.from_file("train.sql"))
+```
 
 # features.py — Define transformations
+```
 class IrisFeatures(FeatureSet):
     sepal_length = Feature(dtype="numeric", transformer=StandardScaler())
     sepal_width = Feature(dtype="numeric", transformer=StandardScaler())
     petal_length = Feature(dtype="numeric", transformer=StandardScaler())
     petal_width = Feature(dtype="numeric", transformer=StandardScaler())
+```
 
 # model.py — Train and predict
+```
 class IrisModel(Model):
     name = "iris-realtime"
     features = IrisFeatures()
     
     def train(self, X, y, params): ...
     def predict(self, X): ...
-
+```
 # endpoint.py — Handle requests (realtime)
+```
 class PredictEndpoint(Endpoint):
     def preprocess(self, request): ...
     def postprocess(self, prediction): ...
+```
 
 # pipeline.py — Run batch jobs
+```
 class ScoringPipeline(BatchPipeline):
     schedule = Schedule.daily(hour=6)
     def run(self): ...

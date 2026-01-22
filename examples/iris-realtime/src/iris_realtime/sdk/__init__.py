@@ -3,12 +3,12 @@
 from .model import IrisModel
 from .features import IrisFeatures
 from .endpoint import IrisEndpoint, get_endpoint
-from .data_sources import load_iris_data
+from .data_sources import training_data
 
 __all__ = [
     "IrisModel",
     "IrisFeatures", 
     "IrisEndpoint",
     "get_endpoint",
-    "load_iris_data",
+    "training_data",
 ]

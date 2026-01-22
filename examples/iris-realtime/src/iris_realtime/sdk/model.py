@@ -3,19 +3,20 @@
 from typing import Optional
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-import joblib
 from pathlib import Path
 import pandas as pd
 
 from geronimo.models import Model, HyperParams
+from geronimo.artifacts import ArtifactStore
 from .features import IrisFeatures
-from .data_sources import load_iris_data
+from .data_sources import training_data
 
 
 class IrisModel(Model):
     """Random Forest classifier for Iris species prediction.
     
-    Uses the declarative IrisFeatures for feature transformation.
+    Uses the declarative IrisFeatures for feature transformation
+    and ArtifactStore for persisting trained artifacts.
     
     Predicts one of three Iris species:
     - setosa (0)
@@ -25,7 +26,6 @@ class IrisModel(Model):
 
     name = "iris-realtime"
     version = "1.0.0"
-    features = IrisFeatures()
     
     # Class labels
     SPECIES = ["setosa", "versicolor", "virginica"]
@@ -33,20 +33,24 @@ class IrisModel(Model):
     def __init__(self):
         super().__init__()
         self.estimator: Optional[RandomForestClassifier] = None
+        self.features: Optional[IrisFeatures] = None
         self._is_fitted = False
 
     def train(self, X=None, y=None, params: Optional[HyperParams] = None) -> dict:
         """Train the Iris classifier.
         
         Uses the declarative IrisFeatures for preprocessing.
-        If X and y are not provided, loads from sklearn's iris dataset.
+        If X and y are not provided, loads data using the training_data DataSource.
         
         Returns:
             Training metrics dict
         """
-        # Load data if not provided
+        # Initialize fresh features for training
+        self.features = IrisFeatures()
+        
+        # Load data from DataSource if not provided
         if X is None or y is None:
-            df = load_iris_data()
+            df = training_data.load()
             y = df["species"].values
             
             # Use the declarative features for transformation
@@ -85,7 +89,7 @@ class IrisModel(Model):
     def predict(self, X) -> np.ndarray:
         """Predict species for input features.
         
-        Uses the declarative IrisFeatures for preprocessing.
+        Uses the fitted IrisFeatures for preprocessing.
         
         Args:
             X: Feature array or DataFrame of shape (n_samples, 4)
@@ -108,7 +112,7 @@ class IrisModel(Model):
     def predict_proba(self, X) -> np.ndarray:
         """Predict class probabilities.
         
-        Uses the declarative IrisFeatures for preprocessing.
+        Uses the fitted IrisFeatures for preprocessing.
         
         Args:
             X: Feature array or DataFrame of shape (n_samples, 4)
@@ -128,47 +132,52 @@ class IrisModel(Model):
         X_transformed = self.features.transform(df)
         return self.estimator.predict_proba(X_transformed)
     
-    def save(self, path: str = "models") -> str:
-        """Save trained model and features to disk.
+    def save(self, store: ArtifactStore) -> list[str]:
+        """Save trained model and features to ArtifactStore.
+        
+        Saves:
+        - estimator: The fitted RandomForest classifier
+        - features: The fitted IrisFeatures (includes scalers)
         
         Args:
-            path: Directory to save model artifacts
+            store: ArtifactStore instance for saving artifacts
             
         Returns:
-            Path to saved model
+            List of saved artifact paths
         """
         if not self._is_fitted:
             raise RuntimeError("Model not trained. Nothing to save.")
         
-        model_dir = Path(path)
-        model_dir.mkdir(parents=True, exist_ok=True)
+        paths = []
         
-        model_path = model_dir / f"{self.name}_v{self.version}.joblib"
+        # Save the trained estimator
+        path = store.save(
+            "estimator", 
+            self.estimator, 
+            artifact_type="RandomForestClassifier",
+            tags={"model": self.name, "version": self.version}
+        )
+        paths.append(path)
         
-        # Save both the estimator AND the fitted features
-        joblib.dump({
-            "estimator": self.estimator,
-            "features": self.features,  # Includes fitted transformers
-            "version": self.version,
-        }, model_path)
+        # Save the fitted features (includes transformers/scalers)
+        path = store.save(
+            "features",
+            self.features,
+            artifact_type="IrisFeatures",
+            tags={"model": self.name, "version": self.version}
+        )
+        paths.append(path)
         
-        return str(model_path)
+        return paths
     
-    def load(self, path: str = "models") -> None:
-        """Load trained model and features from disk.
+    def load(self, store: ArtifactStore) -> None:
+        """Load trained model and features from ArtifactStore.
         
         Args:
-            path: Directory containing model artifacts
+            store: ArtifactStore instance for loading artifacts
         """
-        model_dir = Path(path)
-        model_path = model_dir / f"{self.name}_v{self.version}.joblib"
-        
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model not found: {model_path}")
-        
-        data = joblib.load(model_path)
-        self.estimator = data["estimator"]
-        self.features = data["features"]  # Load fitted features
+        self.estimator = store.get("estimator")
+        self.features = store.get("features")
         self._is_fitted = True
     
     @property

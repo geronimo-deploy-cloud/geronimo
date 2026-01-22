@@ -1,19 +1,23 @@
-"""Endpoint definition for Iris prediction API."""
+"""Endpoint definition for Iris prediction API.
+
+The endpoint loads artifacts from the ArtifactStore - no training occurs here.
+Training must be done separately (via train.py) before the endpoint can serve.
+"""
 
 from typing import Optional
 import numpy as np
 import pandas as pd
 
 from geronimo.serving import Endpoint
+from geronimo.artifacts import ArtifactStore
 from .model import IrisModel
 
 
 class IrisEndpoint(Endpoint):
     """REST API endpoint for Iris species prediction.
     
-    Accepts flower measurements and returns predicted species
-    with confidence scores. Uses the declarative IrisFeatures
-    for preprocessing via the IrisModel.
+    Loads a pre-trained model from ArtifactStore. Training should be done 
+    separately using train.py before starting the endpoint.
     
     Example request:
         {
@@ -37,25 +41,32 @@ class IrisEndpoint(Endpoint):
 
     model_class = IrisModel
 
-    def initialize(self, model_path: str = "models") -> None:
-        """Initialize endpoint by loading or training the model.
+    def initialize(self, project: str = "iris-realtime", version: str = "1.0.0") -> None:
+        """Initialize endpoint by loading model from ArtifactStore.
+        
+        The model and fitted features MUST exist in the artifact store.
+        Run train.py first to create the artifacts.
         
         Args:
-            model_path: Path to saved model artifacts
+            project: Project name in ArtifactStore
+            version: Model version to load
+            
+        Raises:
+            KeyError: If artifacts not found (model not trained)
         """
-        self.model = IrisModel()
+        # Load artifacts from store
+        self._store = ArtifactStore.load(project=project, version=version)
         
-        # Try to load existing model (includes fitted features)
-        try:
-            self.model.load(model_path)
-            self._is_initialized = True
-        except FileNotFoundError:
-            # No saved model - train a new one
-            print("No saved model found. Training new model...")
-            metrics = self.model.train()
-            print(f"Model trained: accuracy={metrics['accuracy']:.3f}")
-            self.model.save(model_path)
-            self._is_initialized = True
+        # Initialize model and load from store
+        self.model = IrisModel()
+        self.model.load(self._store)
+        
+        # List loaded artifacts
+        artifacts = self._store.list()
+        artifact_names = [a.name for a in artifacts]
+        print(f"Loaded artifacts from store: {artifact_names}")
+        
+        self._is_initialized = True
 
     def preprocess(self, request: dict) -> pd.DataFrame:
         """Transform request into DataFrame for model.
@@ -120,7 +131,10 @@ class IrisEndpoint(Endpoint):
             Prediction response
         """
         if not self._is_initialized:
-            raise RuntimeError("Endpoint not initialized. Call initialize() first.")
+            raise RuntimeError(
+                "Endpoint not initialized. Did you run train.py first? "
+                "Call initialize() after training to load the model."
+            )
         
         # Preprocess → Predict (model uses declarative features) → Postprocess
         features_df = self.preprocess(request)
@@ -133,7 +147,11 @@ _endpoint: Optional[IrisEndpoint] = None
 
 
 def get_endpoint() -> IrisEndpoint:
-    """Get or create the endpoint singleton."""
+    """Get or create the endpoint singleton.
+    
+    Raises:
+        KeyError: If model artifacts not found (need to run train.py first)
+    """
     global _endpoint
     if _endpoint is None:
         _endpoint = IrisEndpoint()

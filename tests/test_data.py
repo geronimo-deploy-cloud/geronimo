@@ -99,3 +99,76 @@ class TestDataSource:
                 name="file_data",
                 source="file",
             )
+
+    def test_function_data_source(self):
+        """Test DataSource with function handle."""
+        from geronimo.data import DataSource
+        import pandas as pd
+        
+        def load_data():
+            return pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
+        
+        source = DataSource(
+            name="func_data",
+            source="function",
+            handle=load_data,
+        )
+        
+        df = source.load()
+        assert len(df) == 3
+        assert "x" in df.columns
+
+    def test_function_data_source_with_params(self):
+        """Test function DataSource passes params to handle."""
+        from geronimo.data import DataSource
+        import pandas as pd
+        
+        def load_data(limit=10):
+            return pd.DataFrame({"n": range(limit)})
+        
+        source = DataSource(
+            name="func_data",
+            source="function",
+            handle=load_data,
+        )
+        
+        df = source.load(limit=5)
+        assert len(df) == 5
+
+    def test_function_source_requires_handle(self):
+        """Test that function sources require a handle."""
+        from geronimo.data import DataSource
+        
+        with pytest.raises(ValueError, match="require a handle"):
+            DataSource(
+                name="func_data",
+                source="function",
+            )
+
+    def test_function_source_validates_return_type(self):
+        """Test that function source validates DataFrame return type at runtime."""
+        from geronimo.data import DataSource
+        from geronimo.data.source import DataSourceError
+        
+        def bad_handle():
+            return {"x": [1, 2, 3]}  # Returns dict, not DataFrame
+        
+        source = DataSource(
+            name="bad_func",
+            source="function",
+            handle=bad_handle,
+        )
+        
+        with pytest.raises(DataSourceError, match="must return a pandas DataFrame"):
+            source.load()
+
+    def test_function_source_handle_must_be_callable(self):
+        """Test that handle must be callable."""
+        from geronimo.data import DataSource
+        
+        with pytest.raises(ValueError, match="must be callable"):
+            DataSource(
+                name="bad_func",
+                source="function",
+                handle="not_a_function",
+            )

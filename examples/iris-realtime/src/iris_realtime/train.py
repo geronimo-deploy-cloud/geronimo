@@ -23,7 +23,9 @@ def main():
     print("Training Iris Classifier")
     print("=" * 60)
     
-    # Load data using declarative DataSource
+    # Load data using declarative DataSource - note that this is just for 
+    # here for the output. The data is loaded using the declarative features
+    # in the `model.train()` method.
     print("\n📊 Loading Iris dataset...")
     print(f"   DataSource: {training_data}")
     df = training_data.load()
@@ -40,6 +42,7 @@ def main():
     print("      - petal_length: StandardScaler")
     print("      - petal_width: StandardScaler")
     
+    # Train model using declarative features and data source defined in `model.train()`
     model = IrisModel()
     metrics = model.train()
     
@@ -48,7 +51,7 @@ def main():
     print(f"   Samples: {metrics['n_samples']}")
     print(f"   Features: {metrics['n_features']}")
     
-    # Save to ArtifactStore
+    # Save to ArtifactStore - in production this can be configured to use a remote store
     print("\n💾 Saving to ArtifactStore...")
     store = ArtifactStore(
         project=model.name,

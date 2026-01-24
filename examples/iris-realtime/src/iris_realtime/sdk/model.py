@@ -36,41 +36,29 @@ class IrisModel(Model):
         self.features: Optional[IrisFeatures] = None
         self._is_fitted = False
 
-    def train(self, X=None, y=None, params: Optional[HyperParams] = None) -> dict:
+    def train(self) -> dict:
         """Train the Iris classifier.
-        
-        Uses the declarative IrisFeatures for preprocessing.
-        If X and y are not provided, loads data using the training_data DataSource.
-        
+
         Returns:
             Training metrics dict
         """
-        # Initialize fresh features for training
+        
+        # Load data from DataSource 
+        df = training_data.load()
+        y = df["species"].values
+
+        # Initialize features for training
         self.features = IrisFeatures()
         
-        # Load data from DataSource if not provided
-        if X is None or y is None:
-            df = training_data.load()
-            y = df["species"].values
-            
-            # Use the declarative features for transformation
-            X_transformed = self.features.fit_transform(df)
-        else:
-            # X is already a DataFrame - transform it
-            if isinstance(X, pd.DataFrame):
-                X_transformed = self.features.fit_transform(X)
-            else:
-                # X is numpy array - wrap in DataFrame first
-                df = pd.DataFrame(X, columns=self.features.feature_names)
-                X_transformed = self.features.fit_transform(df)
-        
+        # Use the declarative features for transformation
+        X_transformed = self.features.fit_transform(df)
+       
         # Default hyperparameters
-        if params is None:
-            params = HyperParams(
-                n_estimators=100,
-                max_depth=5,
-                random_state=42
-            )
+        params = HyperParams(
+            n_estimators=100,
+            max_depth=5,
+            random_state=42
+        )
         
         # Train model on transformed features
         self.estimator = RandomForestClassifier(**params.to_dict())
@@ -100,12 +88,12 @@ class IrisModel(Model):
         if not self._is_fitted:
             raise RuntimeError("Model not trained. Call train() or load() first.")
         
-        # Transform using declarative features
         if isinstance(X, np.ndarray):
             df = pd.DataFrame(X, columns=self.features.feature_names)
         else:
             df = X
-        
+
+        # Transform using declarative features
         X_transformed = self.features.transform(df)
         return self.estimator.predict(X_transformed)
     
@@ -123,12 +111,12 @@ class IrisModel(Model):
         if not self._is_fitted:
             raise RuntimeError("Model not trained. Call train() or load() first.")
         
-        # Transform using declarative features
         if isinstance(X, np.ndarray):
             df = pd.DataFrame(X, columns=self.features.feature_names)
         else:
             df = X
-        
+
+        # Transform using declarative features
         X_transformed = self.features.transform(df)
         return self.estimator.predict_proba(X_transformed)
     

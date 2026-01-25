@@ -17,3 +17,6 @@ iris-batch = "flows.scoring_flow:IrisScoringFlow"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.sources]
+geronimo = { path = "../..", editable = true }

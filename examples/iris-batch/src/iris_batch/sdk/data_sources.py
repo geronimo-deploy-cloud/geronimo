@@ -1,13 +1,30 @@
-"""Data source definitions."""
+"""Data source definitions for Iris dataset."""
 
-from geronimo.data import DataSource, Query
+import pandas as pd
+from sklearn.datasets import load_iris
 
-# Example query-based source:
-# training_data = DataSource(
-#     name="training",
-#     source="snowflake",
-#     query=Query.from_file("queries/train.sql"),
-# )
+from geronimo.data import DataSource
 
-# Example file-based source:
-# local_data = DataSource(name="local", source="file", path="data/train.csv")
+
+def _load_iris_dataframe() -> pd.DataFrame:
+    """Load Iris dataset from sklearn."""
+    iris = load_iris()
+    df = pd.DataFrame(
+        iris.data,
+        columns=["sepal_length", "sepal_width", "petal_length", "petal_width"]
+    )
+    df["species"] = iris.target
+    df["species_name"] = df["species"].map({
+        0: "setosa",
+        1: "versicolor", 
+        2: "virginica"
+    })
+    return df
+
+
+# Training data using the function source pattern
+training_data = DataSource(
+    name="iris_training",
+    source="function",
+    handle=_load_iris_dataframe,
+)

@@ -1,6 +1,6 @@
 [project]
 name = "geronimo"
-version = "0.2.1"
+version = "0.2.2"
 description = "ML deployment framework - from local development to production with one command"
 readme = "README.md"
 license = {text = "Apache-2.0"}

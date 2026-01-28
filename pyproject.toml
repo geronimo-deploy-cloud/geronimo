@@ -43,9 +43,16 @@ databases = [
     "psycopg2-binary>=2.9.0",
     "pyodbc>=5.0.0",
 ]
+pulumi = [
+    "pulumi>=3.0.0",
+    "pulumi-aws>=6.0.0",
+    "pulumi-gcp>=7.0.0",
+    "pulumi-azure-native>=2.0.0",
+]
 all = [
     "geronimo[mlflow]",
     "geronimo[databases]",
+    "geronimo[pulumi]",
 ]
 
 [project.scripts]

@@ -887,6 +887,157 @@ def detect_drift(
 
 
 # ============================================================================
+# DEPLOY Command Group
+# ============================================================================
+
+deploy_app = typer.Typer(
+    name="deploy",
+    help="Deploy infrastructure using Pulumi (requires: pip install geronimo[pulumi]).",
+    no_args_is_help=True,
+)
+app.add_typer(deploy_app, name="deploy")
+
+
+@deploy_app.command("up")
+def deploy_up(
+    project: str = typer.Option(
+        ...,
+        "--project",
+        "-p",
+        help="Project name.",
+    ),
+    target: str = typer.Option(
+        "aws",
+        "--target",
+        "-t",
+        help="Cloud target (aws, gcp, azure).",
+    ),
+    region: str = typer.Option(
+        "us-east-1",
+        "--region",
+        "-r",
+        help="Cloud region.",
+    ),
+    component: str = typer.Option(
+        None,
+        "--component",
+        "-c",
+        help="Specific component to deploy (artifacts, serving, batch).",
+    ),
+    stack: str = typer.Option(
+        "dev",
+        "--stack",
+        "-s",
+        help="Pulumi stack name.",
+    ),
+) -> None:
+    """Deploy infrastructure to the cloud.
+    
+    Requires Pulumi: pip install geronimo[pulumi]
+    
+    Examples:
+        geronimo deploy up --project iris --target aws
+        geronimo deploy up --project iris --component artifacts
+    """
+    from geronimo.deploy import DeploymentConfig, deploy
+    from geronimo.deploy.targets import PulumiNotInstalledError
+    
+    console.print(f"\n[bold blue]Deploying {project} to {target}...[/bold blue]")
+    
+    try:
+        config = DeploymentConfig(
+            project=project,
+            target=target,
+            region=region,
+            stack_name=stack,
+        )
+        
+        result = deploy(config, component=component)
+        
+        console.print(
+            Panel(
+                f"[green]✓ Deployment complete![/green]\n\n"
+                f"Stack: {stack}\n"
+                f"Outputs:\n" + "\n".join(f"  {k}: {v}" for k, v in result.get("outputs", {}).items()),
+                title="Deployment Success",
+                border_style="green",
+            )
+        )
+        
+    except PulumiNotInstalledError as e:
+        console.print(f"[bold yellow]Warning:[/bold yellow] {e}")
+        console.print("\nAlternatives:")
+        console.print("  1. Install Pulumi: [cyan]pip install geronimo[pulumi][/cyan]")
+        console.print("  2. Generate static IaC: [cyan]geronimo generate terraform[/cyan]")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@deploy_app.command("destroy")
+def deploy_destroy(
+    project: str = typer.Option(
+        ...,
+        "--project",
+        "-p",
+        help="Project name.",
+    ),
+    target: str = typer.Option(
+        "aws",
+        "--target",
+        "-t",
+        help="Cloud target.",
+    ),
+    stack: str = typer.Option(
+        "dev",
+        "--stack",
+        "-s",
+        help="Pulumi stack name.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Skip confirmation prompt.",
+    ),
+) -> None:
+    """Destroy deployed infrastructure.
+    
+    Removes all resources created by 'deploy up'.
+    """
+    if not force:
+        confirm = typer.confirm(f"Destroy all resources for {project}/{stack}?")
+        if not confirm:
+            console.print("[yellow]Aborted.[/yellow]")
+            raise typer.Exit()
+    
+    console.print(f"\n[bold red]Destroying {project}/{stack}...[/bold red]")
+    
+    try:
+        from geronimo.deploy.config import DeploymentConfig
+        from geronimo.deploy.providers.aws import destroy_aws
+        
+        config = DeploymentConfig(
+            project=project,
+            target=target,
+            stack_name=stack,
+        )
+        
+        if target == "aws":
+            destroy_aws(config)
+        else:
+            console.print(f"[yellow]Destroy not implemented for {target}[/yellow]")
+            raise typer.Exit(code=1)
+        
+        console.print("[green]✓ Resources destroyed.[/green]")
+        
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+# ============================================================================
 # IMPORT Command
 # ============================================================================
 

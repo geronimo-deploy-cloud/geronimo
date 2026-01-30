@@ -7,6 +7,7 @@ from typing import Any, Callable, Literal, Optional
 import pandas as pd
 
 from geronimo.data.query import Query
+from geronimo.data.connection import get_connection, DatabaseConnection
 
 
 class SourceType(str, Enum):
@@ -77,6 +78,7 @@ class DataSource:
         path: Optional[str] = None,
         handle: Optional[Callable[..., pd.DataFrame]] = None,
         connection_params: Optional[dict[str, Any]] = None,
+        connection: Optional[DatabaseConnection] = None,
     ):
         """Initialize data source.
 
@@ -88,6 +90,7 @@ class DataSource:
             handle: Callable that returns a DataFrame (for function sources).
                     Must return pd.DataFrame - validated at runtime.
             connection_params: Optional connection parameters (overrides env vars).
+            connection: Optional custom DatabaseConnection implementation.
         
         Raises:
             ValueError: If required arguments are missing for the source type.
@@ -98,6 +101,7 @@ class DataSource:
         self.path = path
         self.handle = handle
         self.connection_params = connection_params or {}
+        self._custom_connection = connection
 
         # Validate required arguments based on source type
         if self.source == SourceType.FUNC:
@@ -181,69 +185,19 @@ class DataSource:
             raise ValueError(f"Unsupported file format: {path.suffix}")
 
     def _load_database(self, **params) -> pd.DataFrame:
-        """Load data from database."""
+        """Load data from database using connection interface."""
         sql = self.query.render(**params)
-
-        if self.source == SourceType.SNOWFLAKE:
-            return self._query_snowflake(sql)
-        elif self.source == SourceType.POSTGRES:
-            return self._query_postgres(sql)
-        elif self.source == SourceType.SQLSERVER:
-            return self._query_sqlserver(sql)
+        
+        # Use custom connection if provided, otherwise create from factory
+        if self._custom_connection is not None:
+            connection = self._custom_connection
         else:
-            raise ValueError(f"Unsupported source: {self.source}")
-
-    def _query_snowflake(self, sql: str) -> pd.DataFrame:
-        """Execute query against Snowflake."""
-        import snowflake.connector
-
-        conn_args = {
-            "user": self.connection_params.get("user", os.getenv("SNOWFLAKE_USER")),
-            "password": self.connection_params.get(
-                "password", os.getenv("SNOWFLAKE_PASSWORD")
-            ),
-            "account": self.connection_params.get(
-                "account", os.getenv("SNOWFLAKE_ACCOUNT")
-            ),
-            "warehouse": self.connection_params.get(
-                "warehouse", os.getenv("SNOWFLAKE_WAREHOUSE")
-            ),
-            "database": self.connection_params.get(
-                "database", os.getenv("SNOWFLAKE_DATABASE")
-            ),
-            "schema": self.connection_params.get("schema", os.getenv("SNOWFLAKE_SCHEMA")),
-        }
-        conn = snowflake.connector.connect(**conn_args)
-        try:
-            return pd.read_sql(sql, conn)
-        finally:
-            conn.close()
-
-    def _query_postgres(self, sql: str) -> pd.DataFrame:
-        """Execute query against PostgreSQL."""
-        import psycopg2
-
-        conn_str = self.connection_params.get(
-            "connection_string", os.getenv("POSTGRES_CONNECTION_STRING")
-        )
-        conn = psycopg2.connect(conn_str)
-        try:
-            return pd.read_sql(sql, conn)
-        finally:
-            conn.close()
-
-    def _query_sqlserver(self, sql: str) -> pd.DataFrame:
-        """Execute query against SQL Server."""
-        import pyodbc
-
-        conn_str = self.connection_params.get(
-            "connection_string", os.getenv("SQLSERVER_CONNECTION_STRING")
-        )
-        conn = pyodbc.connect(conn_str)
-        try:
-            return pd.read_sql(sql, conn)
-        finally:
-            conn.close()
+            connection = get_connection(self.source.value, self.connection_params)
+        
+        # Use context manager for automatic connection cleanup
+        with connection:
+            return connection.execute(sql)
 
     def __repr__(self) -> str:
         return f"DataSource({self.name}, source={self.source.value})"
+

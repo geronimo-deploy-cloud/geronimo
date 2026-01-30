@@ -103,20 +103,43 @@ class BatchPipeline(ABC):
         self,
         results: Any,
         output_path: Optional[str] = None,
+        use_artifact_store: bool = False,
+        artifact_name: Optional[str] = None,
     ) -> str:
         """Save pipeline results.
 
         Args:
             results: Results to save (DataFrame, dict, etc.).
-            output_path: Optional output path.
+            output_path: Optional output path (for file-based storage).
+            use_artifact_store: If True, save via ArtifactStore for consistency
+                               with other artifacts. Default False for backward
+                               compatibility.
+            artifact_name: Name for artifact when using artifact store.
+                          Defaults to pipeline class name.
 
         Returns:
-            Path where results were saved.
+            Path or URI where results were saved.
         """
         import pandas as pd
         from datetime import datetime
         from pathlib import Path
 
+        # Use ArtifactStore if requested
+        if use_artifact_store:
+            from geronimo.artifacts import ArtifactStore
+            
+            project = self.artifact_project or (
+                self.model_class.name if self.model_class else self.__class__.__name__
+            )
+            version = self.artifact_version or (
+                self.model_class.version if self.model_class else "1.0.0"
+            )
+            
+            store = ArtifactStore(project=project, version=version)
+            name = artifact_name or f"{self.__class__.__name__}_results"
+            return store.save(name, results, artifact_type="pipeline_result")
+
+        # Default file-based storage (backward compatible)
         if output_path is None:
             output_path = f"output/{self.__class__.__name__}_{datetime.now().isoformat()}.parquet"
 

@@ -1,7 +1,9 @@
 """Authentication middleware for FastAPI endpoints."""
 
 import logging
+from collections import defaultdict
 from contextvars import ContextVar
+from datetime import datetime, timedelta
 from functools import wraps
 from typing import Callable, Optional
 
@@ -42,6 +44,9 @@ def get_current_api_key() -> Optional[APIKey]:
 class AuthMiddleware(BaseHTTPMiddleware):
     """FastAPI middleware for API key authentication.
 
+    Includes rate limiting for failed authentication attempts
+    to prevent brute-force attacks (SOC2 compliance).
+
     Example:
         ```python
         from fastapi import FastAPI
@@ -57,6 +62,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
     # Paths that don't require authentication
     PUBLIC_PATHS = {"/health", "/healthz", "/ready", "/docs", "/openapi.json"}
 
+    # Rate limiting configuration
+    MAX_FAILED_ATTEMPTS = 5  # Maximum failed attempts before lockout
+    LOCKOUT_DURATION = timedelta(minutes=15)  # Duration of lockout
+    ATTEMPT_WINDOW = timedelta(minutes=5)  # Window for counting failed attempts
+
     def __init__(self, app, config: AuthConfig):
         """Initialize middleware.
 
@@ -71,6 +81,66 @@ class AuthMiddleware(BaseHTTPMiddleware):
             if config.method == "api_key" and config.keys_file
             else None
         )
+        # Track failed attempts per IP: {ip: [(timestamp, ...], ...}
+        self._failed_attempts: dict[str, list[datetime]] = defaultdict(list)
+        # Track locked out IPs: {ip: lockout_until}
+        self._lockouts: dict[str, datetime] = {}
+
+    def _is_rate_limited(self, client_ip: str) -> bool:
+        """Check if client IP is rate limited.
+        
+        Args:
+            client_ip: Client IP address.
+            
+        Returns:
+            True if rate limited, False otherwise.
+        """
+        now = datetime.utcnow()
+        
+        # Check if currently locked out
+        if client_ip in self._lockouts:
+            if now < self._lockouts[client_ip]:
+                return True
+            else:
+                # Lockout expired, remove it
+                del self._lockouts[client_ip]
+        
+        return False
+
+    def _record_failed_attempt(self, client_ip: str) -> None:
+        """Record a failed authentication attempt.
+        
+        May trigger a lockout if too many failures.
+        
+        Args:
+            client_ip: Client IP address.
+        """
+        now = datetime.utcnow()
+        cutoff = now - self.ATTEMPT_WINDOW
+        
+        # Clean old attempts and add new one
+        self._failed_attempts[client_ip] = [
+            ts for ts in self._failed_attempts[client_ip] if ts > cutoff
+        ]
+        self._failed_attempts[client_ip].append(now)
+        
+        # Check if we need to lockout
+        if len(self._failed_attempts[client_ip]) >= self.MAX_FAILED_ATTEMPTS:
+            self._lockouts[client_ip] = now + self.LOCKOUT_DURATION
+            self._failed_attempts[client_ip] = []  # Clear attempts on lockout
+            logger.warning(
+                f"Rate limit triggered for {client_ip}. "
+                f"Locked out until {self._lockouts[client_ip].isoformat()}"
+            )
+
+    def _clear_failed_attempts(self, client_ip: str) -> None:
+        """Clear failed attempts after successful auth.
+        
+        Args:
+            client_ip: Client IP address.
+        """
+        if client_ip in self._failed_attempts:
+            del self._failed_attempts[client_ip]
 
     async def dispatch(self, request: Request, call_next):
         """Process request and validate authentication."""
@@ -82,13 +152,34 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if not self.config.enabled:
             return await call_next(request)
 
+        # Get client IP for rate limiting
+        client_ip = request.client.host if request.client else "unknown"
+        
+        # Check rate limiting
+        if self._is_rate_limited(client_ip):
+            logger.warning(f"Rate limited request from {client_ip}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed authentication attempts. Please try again later.",
+            )
+
         # Validate based on method
-        if self.config.method == "api_key":
-            api_key = await self._validate_api_key(request)
-        elif self.config.method == "jwt":
-            api_key = await self._validate_jwt(request)
-        else:
-            api_key = None
+        try:
+            if self.config.method == "api_key":
+                api_key = await self._validate_api_key(request)
+            elif self.config.method == "jwt":
+                api_key = await self._validate_jwt(request)
+            else:
+                api_key = None
+            
+            # Successful auth - clear failed attempts
+            if api_key:
+                self._clear_failed_attempts(client_ip)
+        except HTTPException as e:
+            # Record failed attempt if it was an auth failure
+            if e.status_code == status.HTTP_401_UNAUTHORIZED:
+                self._record_failed_attempt(client_ip)
+            raise
 
         # Store API key in context for route handlers
         token = _current_api_key.set(api_key)

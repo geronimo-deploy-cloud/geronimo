@@ -85,25 +85,7 @@ class FeatureSet:
         for feature in self._features.values():
             if feature.drop:
                 continue
-
-            # For derived features, compute value first if needed
-            if feature.has_derived_fn:
-                # Custom functions don't need fitting, but transformers on derived do
-                derived_values = feature.apply(df)
-                if feature.has_transformer:
-                    feature.transformer.fit(derived_values.values.reshape(-1, 1))
-                continue
-
-            # Standard features
-            col_name = feature.source_column
-            if col_name not in df.columns:
-                continue
-
-            if feature.has_transformer:
-                feature.transformer.fit(df[[col_name]])
-
-            if feature.has_encoder:
-                feature.encoder.fit(df[[col_name]])
+            self._process_feature(feature, df, mode="fit")
 
         self._is_fitted = True
         return self
@@ -128,40 +110,84 @@ class FeatureSet:
         for feature in self._features.values():
             if feature.drop:
                 continue
+            
+            transformed = self._process_feature(feature, df, mode="transform")
+            if transformed is not None:
+                if isinstance(transformed, dict):
+                    # Multi-column output from encoders
+                    for col_name, values in transformed.items():
+                        result[col_name] = values
+                else:
+                    result[feature.name] = transformed
 
-            # Handle derived features with custom functions
-            if feature.has_derived_fn:
-                derived_values = feature.apply(df)
-                if feature.has_transformer:
+        return result
+
+    def _process_feature(
+        self,
+        feature: Feature,
+        df: pd.DataFrame,
+        mode: str,
+    ) -> any:
+        """Process a single feature for fit or transform.
+        
+        Unified processing logic to reduce code duplication between
+        fit() and transform() methods.
+        
+        Args:
+            feature: Feature descriptor to process.
+            df: Input DataFrame.
+            mode: Either "fit" or "transform".
+            
+        Returns:
+            For mode="fit": None (modifies transformers/encoders in place).
+            For mode="transform": Transformed values (Series, array, or dict for multi-column).
+        """
+        # Handle derived features with custom functions
+        if feature.has_derived_fn:
+            derived_values = feature.apply(df)
+            
+            if feature.has_transformer:
+                if mode == "fit":
+                    feature.transformer.fit(derived_values.values.reshape(-1, 1))
+                    return None
+                else:  # transform
                     transformed = feature.transformer.transform(
                         derived_values.values.reshape(-1, 1)
                     )
-                    result[feature.name] = transformed.flatten()
-                else:
-                    result[feature.name] = derived_values.values
-                continue
+                    return transformed.flatten()
+            else:
+                if mode == "fit":
+                    return None
+                return derived_values.values
 
-            # Standard features
-            col_name = feature.source_column
-            if col_name not in df.columns:
-                continue
+        # Standard features
+        col_name = feature.source_column
+        if col_name not in df.columns:
+            return None
 
-            if feature.has_transformer:
+        if feature.has_transformer:
+            if mode == "fit":
+                feature.transformer.fit(df[[col_name]])
+                return None
+            else:  # transform
                 transformed = feature.transformer.transform(df[[col_name]])
-                result[feature.name] = transformed.flatten()
-            elif feature.has_encoder:
+                return transformed.flatten()
+        elif feature.has_encoder:
+            if mode == "fit":
+                feature.encoder.fit(df[[col_name]])
+                return None
+            else:  # transform
                 encoded = feature.encoder.transform(df[[col_name]])
                 # Handle multi-column output from encoders
                 if hasattr(feature.encoder, "get_feature_names_out"):
                     enc_names = feature.encoder.get_feature_names_out([col_name])
-                    for i, enc_name in enumerate(enc_names):
-                        result[enc_name] = encoded[:, i]
+                    return {enc_name: encoded[:, i] for i, enc_name in enumerate(enc_names)}
                 else:
-                    result[feature.name] = encoded.flatten()
-            else:
-                result[feature.name] = df[col_name].values
-
-        return result
+                    return encoded.flatten()
+        else:
+            if mode == "fit":
+                return None
+            return df[col_name].values
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Fit and transform in one step.

@@ -1,6 +1,7 @@
 """API Key management for endpoint authentication."""
 
 import hashlib
+import hmac
 import json
 import secrets
 from dataclasses import dataclass, field
@@ -152,6 +153,8 @@ class APIKeyManager:
     def validate(self, key: str) -> Optional[APIKey]:
         """Validate an API key.
 
+        Uses constant-time comparison to prevent timing attacks.
+
         Args:
             key: Raw API key to validate.
 
@@ -164,7 +167,8 @@ class APIKeyManager:
         key_hash = self._hash_key(key)
 
         for api_key in self._keys.values():
-            if api_key.key_hash == key_hash and api_key.is_valid():
+            # Use constant-time comparison to prevent timing attacks (SOC2 requirement)
+            if hmac.compare_digest(api_key.key_hash, key_hash) and api_key.is_valid():
                 return api_key
 
         return None

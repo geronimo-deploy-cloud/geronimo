@@ -279,6 +279,10 @@ app.add_typer(generate_app, name="generate")
 from geronimo.cli.keys_cmd import keys_app
 app.add_typer(keys_app, name="keys")
 
+# Import and register auth CLI
+from geronimo.cli.auth_cmd import auth_app
+app.add_typer(auth_app, name="auth")
+
 
 @generate_app.command("terraform")
 def generate_terraform(
@@ -910,7 +914,7 @@ def deploy_up(
         "aws",
         "--target",
         "-t",
-        help="Cloud target (aws, gcp, azure).",
+        help="Cloud target (aws, gcp, azure, cloud).",
     ),
     region: str = typer.Option(
         "us-east-1",

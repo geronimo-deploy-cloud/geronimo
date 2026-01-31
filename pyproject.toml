@@ -1,6 +1,6 @@
 [project]
 name = "geronimo"
-version = "0.2.2"
+version = "0.3.0"
 description = "ML deployment framework - from local development to production with one command"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -48,6 +48,9 @@ pulumi = [
     "pulumi-aws>=6.0.0",
     "pulumi-gcp>=7.0.0",
     "pulumi-azure-native>=2.0.0",
+]
+cloud = [
+    "httpx>=0.25.0",
 ]
 all = [
     "geronimo[mlflow]",

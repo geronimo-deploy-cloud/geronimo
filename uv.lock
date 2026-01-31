@@ -772,6 +772,9 @@ all = [
     { name = "pyodbc" },
     { name = "snowflake-connector-python" },
 ]
+cloud = [
+    { name = "httpx" },
+]
 databases = [
     { name = "psycopg2-binary" },
     { name = "pyodbc" },
@@ -801,6 +804,7 @@ requires-dist = [
     { name = "geronimo", extras = ["databases"], marker = "extra == 'all'" },
     { name = "geronimo", extras = ["mlflow"], marker = "extra == 'all'" },
     { name = "geronimo", extras = ["pulumi"], marker = "extra == 'all'" },
+    { name = "httpx", marker = "extra == 'cloud'", specifier = ">=0.25.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=2.10.0" },
     { name = "pandas", specifier = ">=2.0.0" },

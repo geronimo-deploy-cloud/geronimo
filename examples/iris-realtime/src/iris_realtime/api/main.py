@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from iris_realtime.api.routes import health, predict
 from iris_realtime.ml.predictor import ModelPredictor
+from iris_realtime.sdk.model import IrisModel
 from iris_realtime.monitoring.middleware import MonitoringMiddleware
 from iris_realtime.monitoring.metrics import MetricsCollector
 from iris_realtime.api import deps
@@ -30,7 +31,7 @@ metrics = MetricsCollector(project_name="iris-realtime")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for model loading."""
     logger.info("Loading model...")
-    deps.predictor = ModelPredictor()
+    deps.predictor = ModelPredictor(IrisModel)
     deps.predictor.load()
     logger.info("Model loaded successfully")
 

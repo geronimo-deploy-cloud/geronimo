@@ -1051,5 +1051,164 @@ from geronimo.cli.import_cmd import import_project
 app.command(name="import")(import_project)
 
 
+# ============================================================================
+# DOCS Command Group
+# ============================================================================
+
+docs_app = typer.Typer(
+    name="docs",
+    help="Generate API documentation.",
+    no_args_is_help=True,
+)
+app.add_typer(docs_app, name="docs")
+
+
+@docs_app.command("generate")
+def docs_generate(
+    output: str = typer.Option(
+        "docs/api",
+        "--output",
+        "-o",
+        help="Output directory for generated documentation.",
+    ),
+) -> None:
+    """Generate API documentation for the Geronimo library.
+
+    Uses pdoc to extract documentation from Python docstrings
+    and generate static HTML files.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    console.print("\n[bold blue]Generating API documentation...[/bold blue]")
+
+    # Find the project root (where pyproject.toml is)
+    current = Path(__file__).resolve()
+    project_root = current.parent.parent.parent.parent  # cli -> geronimo -> src -> root
+
+    # All public modules to document
+    modules = [
+        "geronimo.analyzers",
+        "geronimo.artifacts",
+        "geronimo.batch",
+        "geronimo.cli",
+        "geronimo.cloud",
+        "geronimo.config",
+        "geronimo.data",
+        "geronimo.deploy",
+        "geronimo.features",
+        "geronimo.generators",
+        "geronimo.mcp",
+        "geronimo.models",
+        "geronimo.monitoring",
+        "geronimo.scanners",
+        "geronimo.serving",
+        "geronimo.validation",
+    ]
+
+    output_dir = Path(output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "pdoc",
+        "--output-directory",
+        str(output_dir),
+        *modules,
+    ]
+
+    # Set PYTHONPATH to include src
+    src_path = project_root / "src"
+    env = {**subprocess.os.environ, "PYTHONPATH": str(src_path)}
+
+    try:
+        result = subprocess.run(cmd, cwd=project_root, env=env, check=True)
+        console.print(
+            Panel.fit(
+                f"[bold green]✓ Documentation generated![/bold green]\n\n"
+                f"Output: [cyan]{output_dir.resolve()}[/cyan]\n"
+                f"Modules: {len(modules)}",
+                border_style="green",
+            )
+        )
+    except subprocess.CalledProcessError as e:
+        console.print(f"[bold red]Error:[/bold red] pdoc failed with exit code {e.returncode}")
+        console.print("[dim]Make sure pdoc is installed: pip install pdoc[/dim]")
+        raise typer.Exit(code=1)
+    except FileNotFoundError:
+        console.print("[bold red]Error:[/bold red] pdoc not found")
+        console.print("[dim]Install with: pip install pdoc[/dim]")
+        raise typer.Exit(code=1)
+
+
+@docs_app.command("serve")
+def docs_serve(
+    port: int = typer.Option(
+        8080,
+        "--port",
+        "-p",
+        help="Port to serve documentation on.",
+    ),
+) -> None:
+    """Start a live-reloading documentation server.
+
+    Opens a local development server that automatically
+    rebuilds documentation when source files change.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    console.print(f"\n[bold blue]Starting documentation server on port {port}...[/bold blue]")
+
+    # Find the project root
+    current = Path(__file__).resolve()
+    project_root = current.parent.parent.parent.parent
+
+    modules = [
+        "geronimo.analyzers",
+        "geronimo.artifacts",
+        "geronimo.batch",
+        "geronimo.cli",
+        "geronimo.cloud",
+        "geronimo.config",
+        "geronimo.data",
+        "geronimo.deploy",
+        "geronimo.features",
+        "geronimo.generators",
+        "geronimo.mcp",
+        "geronimo.models",
+        "geronimo.monitoring",
+        "geronimo.scanners",
+        "geronimo.serving",
+        "geronimo.validation",
+    ]
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "pdoc",
+        "--host",
+        "localhost",
+        "--port",
+        str(port),
+        *modules,
+    ]
+
+    src_path = project_root / "src"
+    env = {**subprocess.os.environ, "PYTHONPATH": str(src_path)}
+
+    console.print(f"[dim]Open http://localhost:{port} in your browser[/dim]")
+    console.print("[dim]Press Ctrl+C to stop[/dim]\n")
+
+    try:
+        subprocess.run(cmd, cwd=project_root, env=env)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Server stopped.[/yellow]")
+
+
 if __name__ == "__main__":
     app()
+

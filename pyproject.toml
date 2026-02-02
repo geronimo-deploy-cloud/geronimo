@@ -83,6 +83,7 @@ dev = [
     "build>=1.0.0",
     "fastapi>=0.128.0",
     "httpx>=0.28.1",
+    "pdoc>=15.0.0",
     "pytest-cov>=7.0.0",
     "twine>=6.0.0",
 ]

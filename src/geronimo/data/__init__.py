@@ -3,7 +3,7 @@
 Provides abstractions for data sources, queries, and database connections.
 """
 
-from geronimo.data.source import DataSource
+from geronimo.data.source import DataSource, JoinSpec, collect_data_sources
 from geronimo.data.query import Query
 from geronimo.data.connection import (
     DatabaseConnection,
@@ -16,6 +16,8 @@ from geronimo.data.connection import (
 
 __all__ = [
     "DataSource",
+    "JoinSpec",
+    "collect_data_sources",
     "Query",
     "DatabaseConnection",
     "BaseDatabaseConnection",
@@ -24,4 +26,3 @@ __all__ = [
     "SQLServerConnection",
     "get_connection",
 ]
-

@@ -1,8 +1,14 @@
 """DataSource abstraction for connecting to data backends."""
 
+from __future__ import annotations
+
 import os
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass  # JoinSpec forward reference handled via string annotation
 
 import pandas as pd
 
@@ -79,6 +85,7 @@ class DataSource:
         handle: Optional[Callable[..., pd.DataFrame]] = None,
         connection_params: Optional[dict[str, Any]] = None,
         connection: Optional[DatabaseConnection] = None,
+        join_spec: Optional["JoinSpec"] = None,
     ):
         """Initialize data source.
 
@@ -102,6 +109,7 @@ class DataSource:
         self.handle = handle
         self.connection_params = connection_params or {}
         self._custom_connection = connection
+        self.join_spec = join_spec
 
         # Validate required arguments based on source type
         if self.source == SourceType.FUNC:
@@ -200,4 +208,82 @@ class DataSource:
 
     def __repr__(self) -> str:
         return f"DataSource({self.name}, source={self.source.value})"
+
+
+@dataclass
+class JoinSpec:
+    """Specification for joining a DataSource to the primary source.
+    
+    Used when combining multiple DataSources that share a common key.
+    The first DataSource in a list is treated as the primary; subsequent
+    sources are joined to it using their JoinSpec.
+    
+    Example:
+        ```python
+        from geronimo.data import DataSource, JoinSpec
+        
+        # Primary training source
+        training_customers = DataSource(
+            name="customers",
+            source="file",
+            path="data/customers.csv",
+        )
+        
+        # Secondary source to join
+        training_transactions = DataSource(
+            name="transactions",
+            source="file",
+            path="data/transactions.csv",
+            join_spec=JoinSpec(
+                left_on="customer_id",
+                right_on="customer_id",
+                how="left",
+            ),
+        )
+        ```
+    
+    Attributes:
+        left_on: Column name in the primary (left) source.
+        right_on: Column name in this (right) source.
+        how: Join type - 'left', 'right', 'inner', or 'outer'.
+    """
+    left_on: str
+    right_on: str
+    how: str = "left"
+
+
+def collect_data_sources(module, prefix: str) -> list[DataSource]:
+    """Collect all DataSource objects whose variable names start with prefix.
+    
+    Useful for dynamically collecting training_* or production_* DataSources.
+    
+    Example:
+        ```python
+        # In data_sources.py
+        from geronimo.data import DataSource, collect_data_sources
+        import sys
+        
+        training_customers = DataSource(...)
+        training_transactions = DataSource(...)
+        production_customers = DataSource(...)
+        
+        # Auto-collect by prefix
+        training_sources = collect_data_sources(sys.modules[__name__], "training_")
+        production_sources = collect_data_sources(sys.modules[__name__], "production_")
+        ```
+    
+    Args:
+        module: The module to search (typically sys.modules[__name__]).
+        prefix: Variable name prefix to match (e.g., "training_").
+    
+    Returns:
+        List of DataSource objects whose variable names start with prefix.
+    """
+    sources = []
+    for name in dir(module):
+        if name.startswith(prefix):
+            obj = getattr(module, name)
+            if isinstance(obj, DataSource):
+                sources.append(obj)
+    return sources
 

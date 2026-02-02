@@ -1,7 +1,8 @@
 """Endpoint definition for Iris prediction API.
 
-The endpoint loads artifacts from the ArtifactStore - no training occurs here.
-Training must be done separately (via train.py) before the endpoint can serve.
+The endpoint uses ModelPredictor for inference, which loads
+artifacts from the ArtifactStore. Training must be done separately
+(via train.py) before the endpoint can serve.
 """
 
 from typing import Optional
@@ -9,14 +10,15 @@ import numpy as np
 import pandas as pd
 
 from geronimo.serving import Endpoint
-from geronimo.artifacts import ArtifactStore
+from iris_realtime.ml.predictor import ModelPredictor
 from .model import IrisModel
 
 
 class IrisEndpoint(Endpoint):
     """REST API endpoint for Iris species prediction.
     
-    Loads a pre-trained model from ArtifactStore. Training should be done 
+    Uses ModelPredictor for inference, which loads pre-trained
+    artifacts from ArtifactStore. Training should be done 
     separately using train.py before starting the endpoint.
     
     Example request:
@@ -41,37 +43,32 @@ class IrisEndpoint(Endpoint):
 
     model_class = IrisModel
 
-    def initialize(self, project: str = "iris-realtime", version: str = "1.0.0") -> None:
+    def initialize(self, project: str | None = None, version: str | None = None) -> None:
         """Initialize endpoint by loading model from ArtifactStore.
         
         The model and fitted features MUST exist in the artifact store.
         Run train.py first to create the artifacts.
         
         Args:
-            project: Project name in ArtifactStore
-            version: Model version to load
+            project: Project name in ArtifactStore (defaults to model.name)
+            version: Model version to load (defaults to model.version)
             
         Raises:
             KeyError: If artifacts not found (model not trained)
         """
-        # Load artifacts from store
-        self._store = ArtifactStore.load(project=project, version=version)
+        # Use ModelPredictor for transparent artifact loading
+        self._predictor = ModelPredictor(
+            IrisModel,
+            project=project,
+            version=version,
+        )
+        self._predictor.load()
         
-        # Initialize model and load from store
-        self.model = IrisModel()
-        self.model.load(self._store)
-        
-        # List loaded artifacts
-        artifacts = self._store.list()
-        artifact_names = [a.name for a in artifacts]
-        print(f"Loaded artifacts from store: {artifact_names}")
-        
+        print(f"Loaded model from ArtifactStore: {self._predictor.project}@{self._predictor.version}")
         self._is_initialized = True
 
     def preprocess(self, request: dict) -> pd.DataFrame:
         """Transform request into DataFrame for model.
-        
-        The model will use its fitted IrisFeatures for transformation.
         
         Args:
             request: JSON request body with flower measurements
@@ -115,14 +112,15 @@ class IrisEndpoint(Endpoint):
             "probabilities": {
                 name: round(float(p), 4)
                 for name, p in zip(IrisModel.SPECIES, probs)
-            }
+            },
+            "model_version": IrisModel.version,
         }
     
     def handle(self, request: dict) -> dict:
         """Handle a prediction request.
         
-        Preprocessing creates a DataFrame, the model's predict_proba
-        uses the fitted IrisFeatures for transformation internally.
+        Preprocessing creates a DataFrame, the predictor handles
+        feature transformation and model inference.
         
         Args:
             request: Input request with flower measurements
@@ -136,9 +134,9 @@ class IrisEndpoint(Endpoint):
                 "Call initialize() after training to load the model."
             )
         
-        # Preprocess → Predict (model uses declarative features) → Postprocess
+        # Preprocess → Predict (predictor uses fitted features) → Postprocess
         features_df = self.preprocess(request)
-        probabilities = self.model.predict_proba(features_df)
+        probabilities = self._predictor.predict_proba(features_df)
         return self.postprocess(probabilities)
 
 
@@ -157,3 +155,7 @@ def get_endpoint() -> IrisEndpoint:
         _endpoint = IrisEndpoint()
         _endpoint.initialize()
     return _endpoint
+
+
+# Alias for backward compatibility
+PredictEndpoint = IrisEndpoint

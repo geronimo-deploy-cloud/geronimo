@@ -260,72 +260,189 @@ class ProjectGenerator(BaseGenerator):
 
     def _generate_sdk_model(self, context: dict) -> str:
         """Generate SDK model.py file."""
-        return f'''"""Model definition - implement your ML model here."""
+        # Convert project-name to ProjectName for class names
+        project_name_pascal = ''.join(
+            word.capitalize() for word in context["project_name"].replace("-", "_").split("_")
+        )
+        return f'''"""Model definition for {context["project_name"]}.
+
+This is the central file for your ML model. Implement:
+- train(): Load data, fit features, train estimator
+- predict(): Transform input and generate predictions
+- save(): Persist estimator and features to ArtifactStore
+- load(): Restore estimator and features from ArtifactStore
+"""
+
+from typing import Any, Optional
+import numpy as np
+import pandas as pd
 
 from geronimo.models import Model, HyperParams
-from .features import ProjectFeatures
-from .data_sources import training_data  # Import your data source
+from geronimo.artifacts import ArtifactStore
+from .features import {project_name_pascal}Features
+from .data_sources import training_sources
 
 
-class ProjectModel(Model):
-    """Main model class.
+class {project_name_pascal}Model(Model):
+    """ML model for {context["project_name"]}.
     
-    Define your model's train and predict methods.
-    The features attribute connects to your FeatureSet.
-    The data_source attribute defines where training data comes from.
-    
-    Example:
-        from sklearn.ensemble import RandomForestClassifier
-        
-        def train(self, X, y, params):
-            self.estimator = RandomForestClassifier(**params.to_dict())
-            self.estimator.fit(X, y)
+    Uses declarative features for transformation and ArtifactStore for persistence.
     """
 
     name = "{context["project_name"]}"
     version = "1.0.0"
-    features = ProjectFeatures()
-    data_source = training_data  # Connect to data source
+    
+    def __init__(self):
+        super().__init__()
+        self.estimator: Optional[Any] = None
+        self.features: Optional[{project_name_pascal}Features] = None
+        self._is_fitted = False
 
-    def train(self, X, y, params: HyperParams) -> None:
+    def train(self) -> dict:
         """Train the model.
         
-        Args:
-            X: Feature matrix
-            y: Target labels
-            params: Hyperparameters from HyperParams
-        """
-        # TODO: Implement training logic
-        # self.estimator = YourModel(**params.to_dict())
-        # self.estimator.fit(X, y)
-        raise NotImplementedError("Implement train() method")
+        Loads training data sources, joins them, fits features, and trains estimator.
 
-    def predict(self, X):
-        """Generate predictions.
+        Returns:
+            Training metrics dict
+        """
+        if not training_sources:
+            raise ValueError("No training_* DataSources defined in data_sources.py")
+        
+        # Load and join training data sources
+        df = training_sources[0].load()
+        for source in training_sources[1:]:
+            source_df = source.load()
+            if source.join_spec:
+                df = df.merge(
+                    source_df,
+                    left_on=source.join_spec.left_on,
+                    right_on=source.join_spec.right_on,
+                    how=source.join_spec.how,
+                )
+        
+        # TODO: Configure your target column
+        # y = df["target"].values
+        
+        # Initialize and fit features
+        self.features = {project_name_pascal}Features()
+        # X = self.features.fit_transform(df)
+        
+        # TODO: Initialize and train your estimator
+        # from sklearn.ensemble import RandomForestClassifier
+        # params = HyperParams(n_estimators=100, max_depth=5, random_state=42)
+        # self.estimator = RandomForestClassifier(**params.to_dict())
+        # self.estimator.fit(X, y)
+        
+        self._is_fitted = True
+        
+        # TODO: Return training metrics
+        return {{
+            "n_samples": len(df),
+            # "accuracy": self.estimator.score(X, y),
+        }}
+
+    def predict(self, X) -> np.ndarray:
+        """Predict using the trained model.
         
         Args:
-            X: Feature matrix
+            X: Feature array or DataFrame
             
         Returns:
             Predictions array
         """
-        # TODO: Implement prediction logic
-        # return self.estimator.predict(X)
-        raise NotImplementedError("Implement predict() method")
+        if not self._is_fitted:
+            raise RuntimeError("Model not trained. Call train() or load() first.")
+        
+        if isinstance(X, np.ndarray):
+            df = pd.DataFrame(X, columns=self.features.feature_names)
+        else:
+            df = X
+        
+        # Transform using fitted features
+        X_transformed = self.features.transform(df)
+        return self.estimator.predict(X_transformed)
+    
+    def save(self, store: ArtifactStore) -> list[str]:
+        """Save trained model and features to ArtifactStore.
+        
+        Args:
+            store: ArtifactStore instance
+            
+        Returns:
+            List of saved artifact paths
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model not trained. Nothing to save.")
+        
+        paths = []
+        
+        # Save the trained estimator
+        path = store.save(
+            "estimator", 
+            self.estimator, 
+            artifact_type=type(self.estimator).__name__,
+            tags={{"model": self.name, "version": self.version}}
+        )
+        paths.append(path)
+        
+        # Save the fitted features (includes transformers/scalers)
+        path = store.save(
+            "features",
+            self.features,
+            artifact_type="{project_name_pascal}Features",
+            tags={{"model": self.name, "version": self.version}}
+        )
+        paths.append(path)
+        
+        return paths
+    
+    def load(self, store: ArtifactStore) -> None:
+        """Load trained model and features from ArtifactStore.
+        
+        Args:
+            store: ArtifactStore instance
+        """
+        self.estimator = store.get("estimator")
+        self.features = store.get("features")
+        self._is_fitted = True
+    
+    @property
+    def is_fitted(self) -> bool:
+        """Check if model is trained and ready for predictions."""
+        return self._is_fitted
 '''
 
     def _generate_sdk_features(self, context: dict) -> str:
         """Generate SDK features.py file."""
-        return '''"""Feature definitions - define your feature engineering here."""
+        # Convert project-name to ProjectName for class names
+        project_name_pascal = ''.join(
+            word.capitalize() for word in context["project_name"].replace("-", "_").split("_")
+        )
+        return f'''"""Feature definitions for {context["project_name"]}.
 
+DEVELOPMENT WORKFLOW:
+1. Review training and production data sources for column consistency
+2. Perform exploratory data analysis (EDA) to identify:
+   - Missing values → consider imputation strategies
+   - Outliers → consider clipping or winsorization  
+   - Skewed distributions → consider log/power transforms
+   - Categorical cardinality → consider encoding strategies
+3. Define Features with appropriate transformers
+
+Each Feature describes a column with its type, transformer, and encoder.
+The FeatureSet handles fit_transform (training) and transform (inference).
+"""
+
+from typing import Optional
 from geronimo.features import FeatureSet, Feature
 # from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
 
-class ProjectFeatures(FeatureSet):
-    """Define your features here.
+class {project_name_pascal}Features(FeatureSet):
+    """Feature engineering for {context["project_name"]}.
     
-    Each Feature describes a column with its type, transformer, and encoder.
+    Define your features here. Each Feature describes a column transformation.
     
     Example:
         age = Feature(dtype='numeric', transformer=StandardScaler())
@@ -339,7 +456,7 @@ class ProjectFeatures(FeatureSet):
         )
     """
     
-    # TODO: Define your features
+    # TODO: Define your features based on EDA results
     # feature_1 = Feature(dtype='numeric')
     # feature_2 = Feature(dtype='categorical')
     pass
@@ -347,50 +464,66 @@ class ProjectFeatures(FeatureSet):
 
     def _generate_sdk_data_sources(self, context: dict) -> str:
         """Generate SDK data_sources.py file."""
-        return f'''"""Data source definitions - configure where your data comes from.
+        return f'''"""Data source definitions for {context["project_name"]}.
+
+NAMING CONVENTIONS:
+- training_* : DataSources used for model training (e.g., training_customers, training_transactions)
+- production_* : DataSources used for production inference/batch scoring
+
+JOIN BEHAVIOR:
+- The FIRST DataSource in each group is the primary source
+- Subsequent DataSources are joined to the primary using their join_spec
+- All DataSources in a group should share a common primary key
 
 This module is imported by model.py and pipeline.py to load training/scoring data.
 """
 
-from geronimo.data import DataSource, Query
+import sys
+from geronimo.data import DataSource, JoinSpec, Query, collect_data_sources
 
 
 # =============================================================================
-# Training Data Source (used by model.py)
+# Training Data Sources
 # =============================================================================
 
-# TODO: Configure your training data source
-# Option 1: Local CSV file
+# Primary training source (first in the list)
 training_data = DataSource(
-    name="training",
+    name="training_primary",
     source="file",
-    path="data/train.csv",  # Update with your path
+    path="data/train.csv",  # TODO: Update with your path
 )
 
-# Option 2: Snowflake query
-# training_data = DataSource(
-#     name="training",
-#     source="snowflake",
-#     query=Query.from_file("queries/train.sql"),
-# )
-
-# Option 3: S3 parquet
-# training_data = DataSource(
-#     name="training",
+# Example: Secondary training source to join
+# training_features = DataSource(
+#     name="training_features",
 #     source="file",
-#     path="s3://my-bucket/data/train.parquet",
+#     path="data/features.csv",
+#     join_spec=JoinSpec(
+#         left_on="id",       # Column in primary source
+#         right_on="id",      # Column in this source
+#         how="left",         # left, right, inner, outer
+#     ),
 # )
 
 
 # =============================================================================
-# Scoring Data Source (used by pipeline.py for batch scoring)
+# Production Data Sources
 # =============================================================================
 
-scoring_data = DataSource(
-    name="scoring",
+production_data = DataSource(
+    name="production_primary",
     source="file",
-    path="batch/data/input.csv",  # Update with your path
+    path="batch/data/input.csv",  # TODO: Update with your path
 )
+
+
+# =============================================================================
+# Auto-collected DataSource Lists
+# =============================================================================
+# These are dynamically populated from all training_* and production_* variables above
+
+training_sources = collect_data_sources(sys.modules[__name__], "training_")
+production_sources = collect_data_sources(sys.modules[__name__], "production_")
 '''
 
     def _generate_sdk_endpoint(self, context: dict) -> str:

@@ -12,5 +12,12 @@ try:
 except ImportError:
     MLflowArtifactStore = None
 
-__all__ = ["ArtifactStore", "ArtifactBackend", "MLflowArtifactStore"]
+from geronimo.artifacts.cloud_backend import GeronimoCloudArtifactBackend
+
+__all__ = [
+    "ArtifactStore",
+    "ArtifactBackend",
+    "MLflowArtifactStore",
+    "GeronimoCloudArtifactBackend",
+]
 

@@ -11,7 +11,7 @@ console = Console()
 
 keys_app = typer.Typer(
     name="keys",
-    help="Manage API keys for endpoint authentication.",
+    help="Manage Service to Service API keys for endpoint authentication",
     no_args_is_help=True,
 )
 

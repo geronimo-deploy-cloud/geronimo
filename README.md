@@ -88,8 +88,23 @@ Every project is automatically exposed as an [MCP tool](https://modelcontextprot
 
 ## Getting Started
 
+### 1. Install and Configure
+
 ```bash
 pip install geronimo
+
+# First-time setup: configure artifact storage
+geronimo config init
+```
+
+The setup wizard lets you choose where to store trained models:
+- **local** — `~/.geronimo/artifacts` (default)
+- **s3** — Your S3 bucket
+- **cloud** — Geronimo Cloud (requires `geronimo auth login`)
+
+### 2. Create a Project
+
+```bash
 geronimo init --name my-model --template realtime
 ```
 

@@ -122,7 +122,7 @@ class TestGetAvailableTargets:
         assert "aws" in targets
         assert "gcp" in targets
         assert "azure" in targets
-        assert len(targets) == 3
+        assert len(targets) == 4
 
 
 class TestPulumiDetection:

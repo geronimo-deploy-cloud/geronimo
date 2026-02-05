@@ -321,7 +321,7 @@ class {project_name_pascal}Model(Model):
                     how=source.join_spec.how,
                 )
         
-        # TODO: Configure your target column
+        # TODO: Configure your target column if supervised learning
         # y = df["target"].values
         
         # Initialize and fit features
@@ -914,6 +914,9 @@ def send_pipeline_completion_alert(alert_manager, result: dict, success: bool = 
 
     def _generate_sdk_pipeline(self, context: dict) -> str:
         """Generate SDK pipeline.py file for batch processing."""
+        project_name_pascal = ''.join(
+            word.title() for word in context["project_name"].replace("-", "_").split("_")
+        )
         return f'''"""Pipeline definition - implement your batch processing logic."""
 
 from geronimo.batch import BatchPipeline, Schedule
@@ -921,7 +924,7 @@ from .model import ProjectModel
 from .data_sources import scoring_data
 
 
-class ScoringPipeline(BatchPipeline):
+class {project_name_pascal}ScoringPipeline(BatchPipeline):
     """Batch scoring pipeline.
     
     This is a working demo pipeline. Replace the run() method with your
@@ -1136,6 +1139,9 @@ if __name__ == "__main__":
 
     def _generate_flow_wrapper(self, context: dict) -> str:
         """Generate thin Metaflow wrapper that imports SDK pipeline."""
+        project_name_pascal = ''.join(
+            word.title() for word in context["project_name"].replace("-", "_").split("_")
+        )
         return f'''"""Metaflow flow - thin wrapper around SDK pipeline.
 
 Run locally:
@@ -1146,17 +1152,17 @@ Deploy to Step Functions:
 """
 
 from metaflow import FlowSpec, step, schedule
-from {context["project_name_snake"]}.sdk.pipeline import ScoringPipeline
+from {context["project_name_snake"]}.sdk.pipeline import {project_name_pascal}ScoringPipeline
 
 
 @schedule(daily=True)
-class ScoringFlow(FlowSpec):
+class {project_name_pascal}ScoringFlow(FlowSpec):
     """Batch scoring flow - wraps SDK pipeline."""
 
     @step
     def start(self):
         """Initialize pipeline and load model."""
-        self.pipeline = ScoringPipeline()
+        self.pipeline = {project_name_pascal}ScoringPipeline()
         self.pipeline.initialize()
         print(f"Initialized: {{self.pipeline}}")
         self.next(self.run_pipeline)
@@ -1175,7 +1181,7 @@ class ScoringFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    ScoringFlow()
+    {project_name_pascal}ScoringFlow()
 '''
 
     def _generate_test_sdk(self, context: dict) -> str:
@@ -1265,6 +1271,9 @@ class TestProjectFeatures:
 
     def _generate_metaflow_flow(self, context: dict) -> str:
         """Generate Metaflow flow file."""
+        project_name_pascal = ''.join(
+            word.title() for word in context["project_name"].replace("-", "_").split("_")
+        )
         return f'''"""Metaflow flow for {context["project_name"]} batch scoring.
 
 Run locally:
@@ -1278,7 +1287,7 @@ from metaflow import FlowSpec, step, Parameter, schedule
 
 
 @schedule(daily=True)
-class ScoringFlow(FlowSpec):
+class {project_name_pascal}ScoringFlow(FlowSpec):
     """Daily batch scoring flow."""
 
     input_path = Parameter(
@@ -1353,21 +1362,24 @@ class ScoringFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    ScoringFlow()
+    {project_name_pascal}ScoringFlow()
 '''
 
     def _generate_pipeline_class(self, context: dict) -> str:
         """Generate BatchPipeline class."""
+        project_name_pascal = ''.join(
+            word.title() for word in context["project_name"].replace("-", "_").split("_")
+        )
         return f'''"""Batch pipeline using Geronimo BatchPipeline."""
 
 from geronimo.batch import BatchPipeline, Schedule
 
 
-class ScoringPipeline(BatchPipeline):
+class {project_name_pascal}ScoringPipeline(BatchPipeline):
     """Daily batch scoring pipeline.
     
     Example:
-        pipeline = ScoringPipeline()
+        pipeline = {project_name_pascal}ScoringPipeline()
         pipeline.initialize()
         result = pipeline.execute()
     """
@@ -1415,33 +1427,36 @@ class ScoringPipeline(BatchPipeline):
 
 
 if __name__ == "__main__":
-    pipeline = ScoringPipeline()
+    pipeline = {project_name_pascal}ScoringPipeline()
     pipeline.initialize()
     print(pipeline.execute())
 '''
 
     def _generate_test_batch(self, context: dict) -> str:
         """Generate batch pipeline tests."""
+        project_name_pascal = ''.join(
+            word.title() for word in context["project_name"].replace("-", "_").split("_")
+        )
         return f'''"""Tests for batch pipeline."""
 
 import pytest
 
 
-class TestScoringPipeline:
-    """Tests for ScoringPipeline."""
+class Test{project_name_pascal}ScoringPipeline:
+    """Tests for {project_name_pascal}ScoringPipeline."""
 
     def test_pipeline_exists(self):
         """Test pipeline can be imported."""
-        from {context["project_name_snake"]}.pipeline import ScoringPipeline
+        from {context["project_name_snake"]}.pipeline import {project_name_pascal}ScoringPipeline
         
-        pipeline = ScoringPipeline()
+        pipeline = {project_name_pascal}ScoringPipeline()
         assert pipeline.name == "{context["project_name"]}-scoring"
 
     def test_pipeline_schedule(self):
         """Test pipeline has schedule."""
-        from {context["project_name_snake"]}.pipeline import ScoringPipeline
+        from {context["project_name_snake"]}.pipeline import {project_name_pascal}ScoringPipeline
         
-        pipeline = ScoringPipeline()
+        pipeline = {project_name_pascal}ScoringPipeline()
         assert pipeline.schedule is not None
         assert "6" in pipeline.schedule.cron_expression
 '''
@@ -2134,16 +2149,18 @@ def main():
     # 4. Save model artifacts
     # =========================================================================
     print("\\n4. Saving artifacts...")
-    models_dir = Path(__file__).parent.parent.parent / "models"
     
+    # ArtifactStore uses your global config from ~/.geronimo/config.yaml
+    # Run `geronimo config show` to see current settings
+    # Run `geronimo config init` to change backend (local, s3, or cloud)
     store = ArtifactStore(
         project="{context["project_name"]}",
         version="1.0.0",
-        backend="local",
-        base_path=str(models_dir),
+        # backend defaults to your global config (~/.geronimo/config.yaml)
+        # Override here if needed: backend="local", backend="s3", backend="cloud"
     )
     model.save(store)
-    print(f"   Saved to {{models_dir}}")
+    print(f"   Saved artifacts (backend: {{store.backend}})")
 
     print("\\n" + "=" * 50)
     print("Training complete!")

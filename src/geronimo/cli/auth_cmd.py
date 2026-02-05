@@ -8,7 +8,7 @@ from geronimo.cloud.client import GeronimoCloudClient
 
 auth_app = typer.Typer(
     name="auth",
-    help="Manage Geronimo Cloud authentication.",
+    help="Manage Geronimo Cloud authentication for developers.",
     no_args_is_help=True,
 )
 

@@ -283,6 +283,10 @@ app.add_typer(keys_app, name="keys")
 from geronimo.cli.auth_cmd import auth_app
 app.add_typer(auth_app, name="auth")
 
+# Import and register config CLI
+from geronimo.cli.config_cmd import config_app
+app.add_typer(config_app, name="config")
+
 
 @generate_app.command("terraform")
 def generate_terraform(
@@ -420,65 +424,6 @@ def generate_pipeline(
         raise typer.Exit(code=1)
 
 
-@generate_app.command("batch")
-def generate_batch(
-    config_path: str = typer.Option(
-        "geronimo.yaml",
-        "--config",
-        "-c",
-        help="Path to geronimo.yaml configuration file.",
-    ),
-    output_dir: str = typer.Option(
-        "batch",
-        "--output",
-        "-o",
-        help="Output directory for batch job files.",
-    ),
-) -> None:
-    """Generate Metaflow batch job infrastructure.
-
-    Creates Metaflow flows and deployment configuration for:
-    - AWS Step Functions (with Batch compute)
-    - Astronomer Airflow (with K8s Pod Operators)
-    """
-    from pathlib import Path
-
-    from geronimo.config.loader import load_config
-    from geronimo.generators.metaflow import MetaflowGenerator
-
-    console.print("\n[bold blue]Generating batch job artifacts...[/bold blue]")
-
-    try:
-        config = load_config(config_path)
-
-        if not config.batch.enabled:
-            console.print(
-                "[yellow]Batch jobs not enabled. Set batch.enabled: true in geronimo.yaml[/yellow]"
-            )
-            return
-
-        generator = MetaflowGenerator(
-            project_name=config.project.name,
-            batch_config=config.batch,
-        )
-
-        output_path = Path(output_dir)
-        output_path.mkdir(exist_ok=True)
-
-        generated = generator.generate(output_path)
-
-        console.print(
-            Panel(
-                f"[green]Generated {len(generated)} batch job files in {output_dir}/[/green]",
-                title="✓ Batch Generation Complete",
-            )
-        )
-
-    except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {e}")
-        raise typer.Exit(code=1)
-
-
 @generate_app.command("all")
 def generate_all(
     config_path: str = typer.Option(
@@ -490,7 +435,7 @@ def generate_all(
 ) -> None:
     """Generate all deployment artifacts.
 
-    Generates Terraform, Dockerfile, CI/CD pipeline, and batch jobs in one command.
+    Generates Terraform, Dockerfile, and CI/CD pipeline in one command.
     """
     console.print("\n[bold blue]Generating all artifacts...[/bold blue]")
 
@@ -498,7 +443,6 @@ def generate_all(
     generate_terraform(config_path=config_path, output_dir="infrastructure")
     generate_dockerfile(config_path=config_path, output_path="Dockerfile")
     generate_pipeline(config_path=config_path, output_path="azure-pipelines.yaml")
-    generate_batch(config_path=config_path, output_dir="batch")
 
     console.print("\n[bold green]✓ All artifacts generated successfully![/bold green]")
 
@@ -559,335 +503,8 @@ def validate(
         raise typer.Exit(code=1)
 
 
-# ============================================================================
-# MONITOR Command Group
-# ============================================================================
+# NOTE: 'monitor' command removed - feature being redesigned
 
-monitor_app = typer.Typer(
-    name="monitor",
-    help="Model monitoring and drift detection.",
-    no_args_is_help=True,
-)
-app.add_typer(monitor_app, name="monitor")
-
-
-@monitor_app.command("capture-reference")
-def capture_reference(
-    data_path: str = typer.Argument(
-        ...,
-        help="Path to data file (CSV/Parquet/JSON) or SQL file for query input.",
-    ),
-    project_name: str = typer.Option(
-        ...,
-        "--project",
-        "-p",
-        help="Project name.",
-    ),
-    input_type: str = typer.Option(
-        "file",
-        "--input-type",
-        "-i",
-        help="Input type: 'file' for data files or 'query' for SQL files.",
-    ),
-    source_system: str = typer.Option(
-        None,
-        "--source-system",
-        "-s",
-        help="Database source (snowflake/postgres/sqlserver). Required when input-type=query.",
-    ),
-    model_version: str = typer.Option(
-        "1.0.0",
-        "--version",
-        "-v",
-        help="Model version.",
-    ),
-    deployment_type: str = typer.Option(
-        "realtime",
-        "--type",
-        "-t",
-        help="Deployment type (realtime or batch).",
-    ),
-    sampling_rate: float = typer.Option(
-        0.05,
-        "--sampling-rate",
-        help="Fraction of data to sample (0.001-1.0).",
-    ),
-    s3_bucket: str = typer.Option(
-        "model-monitoring",
-        "--s3-bucket",
-        help="S3 bucket for storing snapshots.",
-    ),
-    output: str = typer.Option(
-        "reference_snapshot.json",
-        "--output",
-        "-o",
-        help="Output path for snapshot JSON.",
-    ),
-) -> None:
-    """Capture a reference snapshot for drift detection.
-
-    Supports two input types:
-    - file: Reads CSV, Parquet, or JSON data files
-    - query: Executes SQL from a .sql file against a database
-    """
-    import json
-    from pathlib import Path
-
-    import pandas as pd
-
-    from geronimo.monitoring.snapshot import SnapshotService
-
-    console.print("\n[bold blue]Capturing reference snapshot...[/bold blue]")
-
-    try:
-        data_file = Path(data_path)
-
-        if input_type == "file":
-            # Load from file
-            if data_file.suffix == ".csv":
-                data = pd.read_csv(data_file)
-            elif data_file.suffix in [".parquet", ".pq"]:
-                data = pd.read_parquet(data_file)
-            elif data_file.suffix == ".json":
-                data = pd.read_json(data_file)
-            else:
-                console.print(f"[bold red]Error:[/bold red] Unsupported format: {data_file.suffix}")
-                raise typer.Exit(code=1)
-            console.print(f"  ✓ Loaded {len(data)} rows from [cyan]{data_file.name}[/cyan]")
-
-        elif input_type == "query":
-            # Execute SQL query
-            if not source_system:
-                console.print(
-                    "[bold red]Error:[/bold red] --source-system is required when input-type=query"
-                )
-                raise typer.Exit(code=1)
-
-            if not data_file.suffix == ".sql":
-                console.print(
-                    f"[bold red]Error:[/bold red] Expected .sql file, got {data_file.suffix}"
-                )
-                raise typer.Exit(code=1)
-
-            sql_query = data_file.read_text()
-            console.print(f"  ✓ Loaded SQL from [cyan]{data_file.name}[/cyan]")
-            console.print(f"  ✓ Connecting to [cyan]{source_system}[/cyan]...")
-
-            # Execute based on source system
-            data = _execute_query(sql_query, source_system)
-            console.print(f"  ✓ Retrieved {len(data)} rows")
-
-        else:
-            console.print(f"[bold red]Error:[/bold red] Invalid input-type: {input_type}")
-            raise typer.Exit(code=1)
-
-        # Sample data based on sampling rate
-        sample_size = max(1, int(len(data) * sampling_rate))
-        if len(data) > sample_size:
-            console.print(f"  ✓ Sampling {sample_size} rows ({sampling_rate:.1%})")
-
-        service = SnapshotService(s3_bucket=s3_bucket)
-        snapshot = service.capture_reference(
-            data=data,
-            project_name=project_name,
-            model_version=model_version,
-            deployment_type=deployment_type,
-            sample_size=sample_size,
-        )
-
-        # Save snapshot metadata
-        snapshot_dict = snapshot.model_dump(mode="json")
-        # Add source info
-        snapshot_dict["input_type"] = input_type
-        if input_type == "query":
-            snapshot_dict["source_system"] = source_system
-            snapshot_dict["query_file"] = str(data_file)
-
-        Path(output).write_text(json.dumps(snapshot_dict, indent=2, default=str))
-
-        console.print(
-            Panel(
-                f"[green]Reference snapshot captured![/green]\n\n"
-                f"Features: {len(snapshot.feature_statistics)}\n"
-                f"Samples: {snapshot.sample_size}\n"
-                f"Output: [cyan]{output}[/cyan]",
-                title="✓ Snapshot Complete",
-            )
-        )
-
-    except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {e}")
-        raise typer.Exit(code=1)
-
-
-def _execute_query(sql: str, source_system: str) -> "pd.DataFrame":
-    """Execute SQL query against specified database.
-
-    Args:
-        sql: SQL query string.
-        source_system: Database type (snowflake/postgres/sqlserver).
-
-    Returns:
-        DataFrame with query results.
-    """
-    import pandas as pd
-
-    if source_system == "snowflake":
-        import snowflake.connector
-
-        conn = snowflake.connector.connect(
-            user=__import__("os").getenv("SNOWFLAKE_USER"),
-            password=__import__("os").getenv("SNOWFLAKE_PASSWORD"),
-            account=__import__("os").getenv("SNOWFLAKE_ACCOUNT"),
-            warehouse=__import__("os").getenv("SNOWFLAKE_WAREHOUSE"),
-            database=__import__("os").getenv("SNOWFLAKE_DATABASE"),
-            schema=__import__("os").getenv("SNOWFLAKE_SCHEMA"),
-        )
-        return pd.read_sql(sql, conn)
-
-    elif source_system == "postgres":
-        import psycopg2
-
-        conn = psycopg2.connect(__import__("os").getenv("POSTGRES_CONNECTION_STRING"))
-        return pd.read_sql(sql, conn)
-
-    elif source_system == "sqlserver":
-        import pyodbc
-
-        conn = pyodbc.connect(__import__("os").getenv("SQLSERVER_CONNECTION_STRING"))
-        return pd.read_sql(sql, conn)
-
-    else:
-        raise ValueError(f"Unsupported source system: {source_system}")
-
-
-@monitor_app.command("detect-drift")
-def detect_drift(
-    reference_path: str = typer.Argument(
-        ...,
-        help="Path to reference snapshot JSON.",
-    ),
-    current_data: str = typer.Argument(
-        ...,
-        help="Path to current data CSV/Parquet.",
-    ),
-    output: str = typer.Option(
-        "drift_report.json",
-        "--output",
-        "-o",
-        help="Output path for drift report.",
-    ),
-    threshold: float = typer.Option(
-        0.1,
-        "--threshold",
-        help="Drift score threshold for alerting.",
-    ),
-) -> None:
-    """Detect drift between reference snapshot and current data.
-
-    Compares feature distributions and generates a drift report.
-    """
-    import json
-    from datetime import datetime
-    from pathlib import Path
-
-    import pandas as pd
-
-    from geronimo.monitoring.drift_models import DriftReport, FeatureDrift, ReferenceSnapshot
-    from geronimo.monitoring.snapshot import SnapshotService
-
-    console.print("\n[bold blue]Detecting drift...[/bold blue]")
-
-    try:
-        # Load reference
-        ref_data = json.loads(Path(reference_path).read_text())
-        reference = ReferenceSnapshot.model_validate(ref_data)
-
-        # Load current data
-        current_file = Path(current_data)
-        if current_file.suffix == ".csv":
-            data = pd.read_csv(current_file)
-        else:
-            data = pd.read_parquet(current_file)
-
-        # Compute current stats
-        service = SnapshotService()
-        current_window = service.capture_window(
-            data=data,
-            project_name=reference.project_name,
-            deployment_type=reference.deployment_type,
-            window_start=datetime.utcnow(),
-            window_end=datetime.utcnow(),
-        )
-
-        # Compare features
-        feature_drift = {}
-        drift_features = 0
-
-        for name, ref_stats in reference.feature_statistics.items():
-            if name not in current_window.feature_statistics:
-                continue
-
-            curr_stats = current_window.feature_statistics[name]
-            drift_score = 0.0
-
-            if ref_stats.mean is not None and curr_stats.mean is not None:
-                # Simple mean shift as drift indicator
-                if ref_stats.std and ref_stats.std > 0:
-                    drift_score = abs(curr_stats.mean - ref_stats.mean) / ref_stats.std
-                else:
-                    drift_score = abs(curr_stats.mean - ref_stats.mean)
-
-            drift_detected = drift_score > threshold
-            if drift_detected:
-                drift_features += 1
-
-            feature_drift[name] = FeatureDrift(
-                feature_name=name,
-                drift_detected=drift_detected,
-                drift_score=min(drift_score, 1.0),
-                stattest_name="mean_shift",
-                stattest_threshold=threshold,
-                reference_mean=ref_stats.mean,
-                current_mean=curr_stats.mean,
-            )
-
-        # Overall drift
-        total_features = len(feature_drift)
-        dataset_drift = (drift_features / total_features) > 0.3 if total_features > 0 else False
-        overall_score = drift_features / total_features if total_features > 0 else 0.0
-
-        report = DriftReport(
-            id=str(__import__("uuid").uuid4()),
-            project_name=reference.project_name,
-            reference_id=reference.id,
-            recent_window_id=current_window.id,
-            created_at=datetime.utcnow(),
-            dataset_drift=dataset_drift,
-            drift_score=overall_score,
-            feature_drift=feature_drift,
-            alert_triggered=dataset_drift,
-        )
-
-        # Save report
-        report_dict = report.model_dump(mode="json")
-        Path(output).write_text(json.dumps(report_dict, indent=2, default=str))
-
-        # Display results
-        status = "[red]DRIFT DETECTED[/red]" if dataset_drift else "[green]No significant drift[/green]"
-        console.print(
-            Panel(
-                f"{status}\n\n"
-                f"Features with drift: {drift_features}/{total_features}\n"
-                f"Overall score: {overall_score:.2%}\n"
-                f"Report: [cyan]{output}[/cyan]",
-                title="Drift Report",
-            )
-        )
-
-    except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {e}")
-        raise typer.Exit(code=1)
 
 
 # ============================================================================
@@ -1041,18 +658,11 @@ def deploy_destroy(
         raise typer.Exit(code=1)
 
 
-# ============================================================================
-# IMPORT Command
-# ============================================================================
-
-# Register import command from separate module
-from geronimo.cli.import_cmd import import_project
-
-app.command(name="import")(import_project)
+# NOTE: 'import' command removed - feature being redesigned
 
 
 # ============================================================================
-# DOCS Command Group
+# DOCS Functions (for maintainer scripts, not exposed in CLI)
 # ============================================================================
 
 docs_app = typer.Typer(
@@ -1060,7 +670,10 @@ docs_app = typer.Typer(
     help="Generate API documentation.",
     no_args_is_help=True,
 )
-app.add_typer(docs_app, name="docs")
+# NOTE: docs_app is intentionally NOT registered with app.add_typer()
+# End users don't need this command. Maintainers can run docs generation via:
+#   uv run python -m pdoc --output-directory docs/api geronimo
+# Or use the functions below directly in scripts.
 
 
 @docs_app.command("generate")
@@ -1089,7 +702,6 @@ def docs_generate(
 
     # All public modules to document
     modules = [
-        "geronimo.analyzers",
         "geronimo.artifacts",
         "geronimo.batch",
         "geronimo.cli",
@@ -1101,8 +713,6 @@ def docs_generate(
         "geronimo.generators",
         "geronimo.mcp",
         "geronimo.models",
-        "geronimo.monitoring",
-        "geronimo.scanners",
         "geronimo.serving",
         "geronimo.validation",
     ]
@@ -1168,7 +778,6 @@ def docs_serve(
     project_root = current.parent.parent.parent.parent
 
     modules = [
-        "geronimo.analyzers",
         "geronimo.artifacts",
         "geronimo.batch",
         "geronimo.cli",
@@ -1180,8 +789,6 @@ def docs_serve(
         "geronimo.generators",
         "geronimo.mcp",
         "geronimo.models",
-        "geronimo.monitoring",
-        "geronimo.scanners",
         "geronimo.serving",
         "geronimo.validation",
     ]

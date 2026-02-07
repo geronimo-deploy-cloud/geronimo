@@ -5,6 +5,9 @@ Provides versioned storage for ML artifacts (models, encoders, etc.).
 
 from geronimo.artifacts.store import ArtifactStore
 from geronimo.artifacts.protocol import ArtifactBackend
+from geronimo.artifacts.local_backend import LocalArtifactBackend
+from geronimo.artifacts.s3_backend import S3ArtifactBackend
+from geronimo.artifacts.cloud_backend import GeronimoCloudArtifactBackend
 
 # Optional MLflow backend
 try:
@@ -12,12 +15,11 @@ try:
 except ImportError:
     MLflowArtifactStore = None
 
-from geronimo.artifacts.cloud_backend import GeronimoCloudArtifactBackend
-
 __all__ = [
     "ArtifactStore",
     "ArtifactBackend",
-    "MLflowArtifactStore",
+    "LocalArtifactBackend",
+    "S3ArtifactBackend",
     "GeronimoCloudArtifactBackend",
+    "MLflowArtifactStore",
 ]
-

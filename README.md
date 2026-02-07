@@ -102,6 +102,16 @@ The setup wizard lets you choose where to store trained models:
 - **s3** — Your S3 bucket
 - **cloud** — Geronimo Cloud (requires `geronimo auth login`)
 
+### Sync Keys to Cloud
+
+If deploying to Geronimo Cloud, sync your local API keys so they work with cloud endpoints:
+
+```bash
+geronimo keys sync                        # Sync all keys
+geronimo keys sync --key-ids abc123       # Sync specific keys
+geronimo keys sync --interactive          # Select keys interactively
+```
+
 ### 2. Create a Project
 
 ```bash

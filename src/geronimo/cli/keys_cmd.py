@@ -1,13 +1,10 @@
 """CLI commands for API key management."""
 
 import typer
-from rich.console import Console
 from rich.table import Table
 
-# Import directly to avoid fastapi dependency in CLI
 from geronimo.serving.auth.keys import APIKeyManager
-
-console = Console()
+from geronimo.cli.utils import console, success, error, warning, dim
 
 keys_app = typer.Typer(
     name="keys",
@@ -64,7 +61,7 @@ def list_keys(
     keys = manager.list_keys()
 
     if not keys:
-        console.print("[dim]No API keys found.[/dim]")
+        dim("No API keys found.")
         return
 
     table = Table(title="API Keys")
@@ -104,10 +101,9 @@ def revoke_key(
     manager = APIKeyManager(keys_file)
 
     if manager.revoke(key_id):
-        console.print(f"[green]✓ Key {key_id} revoked[/green]")
+        success(f"Key {key_id} revoked")
     else:
-        console.print(f"[red]✗ Key {key_id} not found[/red]")
-        raise typer.Exit(code=1)
+        error(f"Key {key_id} not found", exit_code=1)
 
 
 @keys_app.command("delete")
@@ -122,7 +118,7 @@ def delete_key(
     force: bool = typer.Option(
         False,
         "--force",
-        "-f",
+        "-y",  # Changed from -f to avoid conflict with --keys-file
         help="Skip confirmation",
     ),
 ) -> None:
@@ -131,8 +127,7 @@ def delete_key(
 
     key = manager.get_key(key_id)
     if not key:
-        console.print(f"[red]✗ Key {key_id} not found[/red]")
-        raise typer.Exit(code=1)
+        error(f"Key {key_id} not found", exit_code=1)
 
     if not force:
         confirm = typer.confirm(f"Permanently delete key '{key.name}' ({key_id})?")
@@ -140,4 +135,100 @@ def delete_key(
             raise typer.Abort()
 
     manager.delete(key_id)
-    console.print(f"[green]✓ Key {key_id} deleted[/green]")
+    success(f"Key {key_id} deleted")
+
+
+@keys_app.command("sync")
+def sync_keys(
+    keys_file: str = typer.Option(
+        ".geronimo/keys.json",
+        "--keys-file",
+        "-f",
+        help="Path to keys file",
+    ),
+    key_ids: str = typer.Option(
+        None,
+        "--key-ids",
+        "-k",
+        help="Comma-separated key IDs to sync (default: all)",
+    ),
+    interactive: bool = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help="Interactively select keys to sync",
+    ),
+) -> None:
+    """Sync local API keys to Geronimo Cloud.
+    
+    Uploads your local API keys to Geronimo Cloud so they can be used
+    for authenticating requests to cloud-deployed endpoints.
+    
+    Cloud-managed keys (created via dashboard) take precedence and
+    won't be overwritten by synced keys.
+    """
+    from geronimo.cloud.client import GeronimoCloudClient
+    
+    manager = APIKeyManager(keys_file)
+    all_keys = manager.list_keys()
+    
+    if not all_keys:
+        dim("No local API keys found.")
+        return
+    
+    # Filter keys based on options
+    keys_to_sync = all_keys
+    
+    if key_ids:
+        # Filter to specified key IDs
+        requested_ids = {k.strip() for k in key_ids.split(",")}
+        keys_to_sync = [k for k in all_keys if k.key_id in requested_ids]
+        
+        # Warn about missing keys
+        found_ids = {k.key_id for k in keys_to_sync}
+        missing_ids = requested_ids - found_ids
+        if missing_ids:
+            warning(f"Keys not found: {', '.join(missing_ids)}")
+        
+        if not keys_to_sync:
+            error("No matching keys found", exit_code=1)
+    
+    elif interactive:
+        # Interactive selection
+        console.print("\n[bold]Select keys to sync:[/bold]\n")
+        keys_to_sync = []
+        
+        for key in all_keys:
+            status = "[green]active[/green]" if key.enabled else "[red]revoked[/red]"
+            console.print(f"  [dim]{key.key_id}[/dim] - [cyan]{key.name}[/cyan] ({status})")
+            
+            if typer.confirm("    Sync this key?", default=True):
+                keys_to_sync.append(key)
+        
+        console.print()
+        
+        if not keys_to_sync:
+            dim("No keys selected.")
+            return
+    
+    # Convert to dicts for API
+    keys_data = [key.to_dict() for key in keys_to_sync]
+    
+    # Sync to cloud
+    try:
+        client = GeronimoCloudClient()
+        result = client.sync_keys(keys_data)
+        
+        synced = result.get("synced", 0)
+        skipped = result.get("skipped", 0)
+        
+        console.print(f"\n[bold green]✓ Keys synced to Geronimo Cloud[/bold green]")
+        console.print(f"  Synced: [green]{synced}[/green]")
+        if skipped:
+            console.print(f"  Skipped: [yellow]{skipped}[/yellow] (cloud-managed keys take precedence)")
+        console.print()
+        
+    except RuntimeError as e:
+        error(str(e), exit_code=1)
+    except Exception as e:
+        error(f"Failed to sync keys: {e}", exit_code=1)

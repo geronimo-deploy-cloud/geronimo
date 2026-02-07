@@ -22,6 +22,7 @@ from geronimo.config.schema import (
 )
 
 from geronimo.generators.base import BaseGenerator
+from geronimo.generators.template_engine import TemplateEngine
 
 
 class ProjectGenerator(BaseGenerator):
@@ -50,6 +51,7 @@ class ProjectGenerator(BaseGenerator):
         self.output_dir = Path(output_dir)
         self.project_dir = self.output_dir / self.project_name
         self.template = template
+        self.engine = TemplateEngine()
 
     def _get_framework_dependencies(self) -> list[str]:
         """Get framework-specific dependencies."""
@@ -96,6 +98,25 @@ class ProjectGenerator(BaseGenerator):
         framework_deps = self._get_framework_dependencies()
 
         return core + template_deps + framework_deps
+
+    def _to_pascal_case(self, name: str) -> str:
+        """Convert kebab-case or snake_case name to PascalCase.
+        
+        Args:
+            name: Name in kebab-case (my-project) or snake_case (my_project)
+            
+        Returns:
+            PascalCase version (MyProject)
+            
+        Examples:
+            >>> self._to_pascal_case("my-project")
+            'MyProject'
+            >>> self._to_pascal_case("test_batch")
+            'TestBatch'
+        """
+        return ''.join(
+            word.title() for word in name.replace("-", "_").split("_")
+        )
 
     def _create_config(self) -> GeronimoConfig:
         """Create the default configuration for this project."""
@@ -215,31 +236,27 @@ class ProjectGenerator(BaseGenerator):
         self.write_file(pkg_dir / "__init__.py", f'"""ML package for {self.project_name}."""\n')
 
         # ==============================
-        # SDK Core (always generated)
+        # SDK Core (always generated) - use templates
         # ==============================
         sdk_dir = pkg_dir / "sdk"
         sdk_dir.mkdir(exist_ok=True)
         self.write_file(sdk_dir / "__init__.py", '"""Geronimo SDK - define your model lifecycle here."""\n')
         
-        # model.py
-        self.write_file(sdk_dir / "model.py", self._generate_sdk_model(context))
-        
-        # features.py
-        self.write_file(sdk_dir / "features.py", self._generate_sdk_features(context))
-        
-        # data_sources.py
-        self.write_file(sdk_dir / "data_sources.py", self._generate_sdk_data_sources(context))
+        # Use template engine for SDK files
+        self.engine.render_to_file("sdk/model.py.jinja2", context, sdk_dir / "model.py")
+        self.engine.render_to_file("sdk/features.py.jinja2", context, sdk_dir / "features.py")
+        self.engine.render_to_file("sdk/data_sources.py.jinja2", context, sdk_dir / "data_sources.py")
 
         # ==============================
         # Template-specific SDK files
         # ==============================
         if self.template in ("realtime", "both"):
-            self.write_file(sdk_dir / "endpoint.py", self._generate_sdk_endpoint(context))
+            self.engine.render_to_file("sdk/endpoint.py.jinja2", context, sdk_dir / "endpoint.py")
             self.write_file(sdk_dir / "monitoring_config.py", self._generate_sdk_monitoring_config(context))
             self.write_file(pkg_dir / "app.py", self._generate_app_wrapper(context))
         
         if self.template in ("batch", "both"):
-            self.write_file(sdk_dir / "pipeline.py", self._generate_sdk_pipeline(context))
+            self.engine.render_to_file("sdk/pipeline.py.jinja2", context, sdk_dir / "pipeline.py")
             self.write_file(sdk_dir / "monitoring_config.py", self._generate_sdk_batch_monitoring_config(context))
             self.write_file(pkg_dir / "flow.py", self._generate_flow_wrapper(context))
             
@@ -260,10 +277,7 @@ class ProjectGenerator(BaseGenerator):
 
     def _generate_sdk_model(self, context: dict) -> str:
         """Generate SDK model.py file."""
-        # Convert project-name to ProjectName for class names
-        project_name_pascal = ''.join(
-            word.capitalize() for word in context["project_name"].replace("-", "_").split("_")
-        )
+        project_name_pascal = self._to_pascal_case(context["project_name"])
         return f'''"""Model definition for {context["project_name"]}.
 
 This is the central file for your ML model. Implement:
@@ -415,10 +429,7 @@ class {project_name_pascal}Model(Model):
 
     def _generate_sdk_features(self, context: dict) -> str:
         """Generate SDK features.py file."""
-        # Convert project-name to ProjectName for class names
-        project_name_pascal = ''.join(
-            word.capitalize() for word in context["project_name"].replace("-", "_").split("_")
-        )
+        project_name_pascal = self._to_pascal_case(context["project_name"])
         return f'''"""Feature definitions for {context["project_name"]}.
 
 DEVELOPMENT WORKFLOW:
@@ -914,9 +925,7 @@ def send_pipeline_completion_alert(alert_manager, result: dict, success: bool = 
 
     def _generate_sdk_pipeline(self, context: dict) -> str:
         """Generate SDK pipeline.py file for batch processing."""
-        project_name_pascal = ''.join(
-            word.title() for word in context["project_name"].replace("-", "_").split("_")
-        )
+        project_name_pascal = self._to_pascal_case(context["project_name"])
         return f'''"""Pipeline definition - implement your batch processing logic."""
 
 from geronimo.batch import BatchPipeline, Schedule
@@ -1139,9 +1148,7 @@ if __name__ == "__main__":
 
     def _generate_flow_wrapper(self, context: dict) -> str:
         """Generate thin Metaflow wrapper that imports SDK pipeline."""
-        project_name_pascal = ''.join(
-            word.title() for word in context["project_name"].replace("-", "_").split("_")
-        )
+        project_name_pascal = self._to_pascal_case(context["project_name"])
         return f'''"""Metaflow flow - thin wrapper around SDK pipeline.
 
 Run locally:
@@ -1271,9 +1278,7 @@ class TestProjectFeatures:
 
     def _generate_metaflow_flow(self, context: dict) -> str:
         """Generate Metaflow flow file."""
-        project_name_pascal = ''.join(
-            word.title() for word in context["project_name"].replace("-", "_").split("_")
-        )
+        project_name_pascal = self._to_pascal_case(context["project_name"])
         return f'''"""Metaflow flow for {context["project_name"]} batch scoring.
 
 Run locally:
@@ -1367,9 +1372,7 @@ if __name__ == "__main__":
 
     def _generate_pipeline_class(self, context: dict) -> str:
         """Generate BatchPipeline class."""
-        project_name_pascal = ''.join(
-            word.title() for word in context["project_name"].replace("-", "_").split("_")
-        )
+        project_name_pascal = self._to_pascal_case(context["project_name"])
         return f'''"""Batch pipeline using Geronimo BatchPipeline."""
 
 from geronimo.batch import BatchPipeline, Schedule
@@ -1434,9 +1437,7 @@ if __name__ == "__main__":
 
     def _generate_test_batch(self, context: dict) -> str:
         """Generate batch pipeline tests."""
-        project_name_pascal = ''.join(
-            word.title() for word in context["project_name"].replace("-", "_").split("_")
-        )
+        project_name_pascal = self._to_pascal_case(context["project_name"])
         return f'''"""Tests for batch pipeline."""
 
 import pytest

@@ -8,14 +8,12 @@ Provides commands for:
 """
 
 import typer
-from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from geronimo.config.user_config import (
     load_user_config,
     save_user_config,
-    get_config_value,
     set_config_value,
     reset_user_config,
     USER_CONFIG_FILE,
@@ -23,6 +21,7 @@ from geronimo.config.user_config import (
     ArtifactConfig,
     DefaultsConfig,
 )
+from geronimo.cli.utils import console, success, dim
 
 
 config_app = typer.Typer(
@@ -30,8 +29,6 @@ config_app = typer.Typer(
     help="Manage global Geronimo configuration.",
     no_args_is_help=True,
 )
-
-console = Console()
 
 
 @config_app.command("init")
@@ -113,7 +110,7 @@ def config_show():
     
     console.print()
     console.print(table)
-    console.print(f"\n[dim]Config file: {USER_CONFIG_FILE}[/dim]\n")
+    dim(f"\nConfig file: {USER_CONFIG_FILE}\n")
     
     # Show auth status for cloud backend
     if config.artifacts.backend == "cloud":
@@ -121,7 +118,7 @@ def config_show():
             from geronimo.cli.auth_cmd import get_current_user
             user = get_current_user()
             if user:
-                console.print(f"[green]✓ Authenticated as {user}[/green]\n")
+                success(f"Authenticated as {user}")
             else:
                 console.print("[yellow]⚠ Cloud backend requires authentication.[/yellow]")
                 console.print("  Run [bold]geronimo auth login[/bold] to authenticate.\n")
@@ -140,10 +137,10 @@ def config_set(
         geronimo config set artifacts.backend s3
         geronimo config set artifacts.s3_bucket my-ml-bucket
     """
-    success = set_config_value(key, value)
+    result = set_config_value(key, value)
     
-    if success:
-        console.print(f"[green]✓[/green] Set [cyan]{key}[/cyan] = [green]{value}[/green]")
+    if result:
+        success(f"Set [cyan]{key}[/cyan] = [green]{value}[/green]")
     else:
         console.print(f"[red]✗[/red] Invalid key or value: {key}={value}")
         console.print("\nValid keys:")
@@ -163,9 +160,9 @@ def config_reset(
     if not force:
         confirm = typer.confirm("Reset all settings to defaults?")
         if not confirm:
-            console.print("[dim]Cancelled.[/dim]")
+            dim("Cancelled.")
             return
     
     reset_user_config()
-    console.print("[green]✓[/green] Configuration reset to defaults.")
-    console.print(f"[dim]Removed {USER_CONFIG_FILE}[/dim]")
+    success("Configuration reset to defaults.")
+    dim(f"Removed {USER_CONFIG_FILE}")

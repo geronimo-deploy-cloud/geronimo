@@ -1,14 +1,12 @@
 """ArtifactStore for versioned ML artifact management."""
 
-import json
 import os
-import pickle
-import tempfile
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel
+
+from geronimo.artifacts.protocol import ArtifactBackend
 
 
 class ArtifactMetadata(BaseModel):
@@ -53,7 +51,7 @@ class ArtifactStore:
         self,
         project: str,
         version: str,
-        backend: Optional[Literal["local", "s3", "cloud"]] = None,
+        backend: Optional[Union[Literal["local", "s3", "cloud"], ArtifactBackend]] = None,
         base_path: Optional[str] = None,
         s3_bucket: Optional[str] = None,
     ):
@@ -62,7 +60,7 @@ class ArtifactStore:
         Args:
             project: Project name.
             version: Version string (e.g., "1.2.0").
-            backend: Storage backend ("local", "s3", or "cloud").
+            backend: Storage backend ("local", "s3", "cloud") or custom ArtifactBackend instance.
                      Defaults to value from ~/.geronimo/config.yaml.
             base_path: Base path for local storage.
                        Defaults to ~/.geronimo/artifacts.
@@ -75,37 +73,57 @@ class ArtifactStore:
         
         self.project = project
         self.version = version
-        self.backend = backend or user_config.artifacts.backend
         
-        # Resolve s3_bucket with fallback chain: param -> config -> env -> default
-        self.s3_bucket = (
-            s3_bucket 
-            or user_config.artifacts.s3_bucket 
-            or os.getenv("GERONIMO_ARTIFACT_BUCKET", "ml-artifacts")
-        )
-
-        if self.backend == "local":
-            self.base_path = Path(
-                base_path 
-                or os.path.expanduser(user_config.artifacts.base_path)
-            )
-            self.artifact_path = self.base_path / project / version
-            self.artifact_path.mkdir(parents=True, exist_ok=True)
-            self._backend_impl = None  # Use internal local logic for now
-        elif self.backend == "cloud":
-            # Cloud backend uses Geronimo Cloud API
-            from geronimo.artifacts.cloud_backend import GeronimoCloudArtifactBackend
-            self._backend_impl = GeronimoCloudArtifactBackend(
-                project=self.project,
-                version=self.version
-            )
+        # Handle custom backend instance
+        if isinstance(backend, ArtifactBackend):
+            self.backend = "custom"
+            self._backend_impl = backend
         else:
-            # S3 backend
-            self._backend_impl = None  # Use internal s3 logic for now
-            self.base_path = None
-            self.artifact_path = None
+            self.backend = backend or user_config.artifacts.backend
+            
+            # Resolve s3_bucket with fallback chain: param -> config -> env -> default
+            self.s3_bucket = (
+                s3_bucket 
+                or user_config.artifacts.s3_bucket 
+                or os.getenv("GERONIMO_ARTIFACT_BUCKET", "ml-artifacts")
+            )
+            
+            # Resolve base_path
+            self.base_path = base_path or os.path.expanduser(user_config.artifacts.base_path)
+            
+            # Create backend instance using factory
+            self._backend_impl = self._create_backend()
 
         self._metadata: dict[str, ArtifactMetadata] = {}
+
+    def _create_backend(self) -> ArtifactBackend:
+        """Factory method to create backend instance.
+        
+        Returns:
+            ArtifactBackend implementation based on self.backend type.
+        """
+        if self.backend == "local":
+            from geronimo.artifacts.local_backend import LocalArtifactBackend
+            return LocalArtifactBackend(
+                project=self.project,
+                version=self.version,
+                base_path=self.base_path,
+            )
+        elif self.backend == "s3":
+            from geronimo.artifacts.s3_backend import S3ArtifactBackend
+            return S3ArtifactBackend(
+                project=self.project,
+                version=self.version,
+                bucket=self.s3_bucket,
+            )
+        elif self.backend == "cloud":
+            from geronimo.artifacts.cloud_backend import GeronimoCloudArtifactBackend
+            return GeronimoCloudArtifactBackend(
+                project=self.project,
+                version=self.version,
+            )
+        else:
+            raise ValueError(f"Unknown backend type: {self.backend}")
 
     @classmethod
     def load(
@@ -151,41 +169,25 @@ class ArtifactStore:
         artifact_type = artifact_type or type(artifact).__name__
         tags = tags or {}
         
-        # Calculate size/meta for protocol if needed, but the backends might do it themselves.
-        # For now, we construct minimal metadata dict to pass to backend if strictly following protocol,
-        # but our custom backend `save` takes `metadata`.
-        
         meta_dict = {
             "artifact_type": artifact_type,
             "tags": tags,
         }
 
-        if self.backend == "cloud" and self._backend_impl:
-            # Delegate to cloud backend
-            uri = self._backend_impl.save(name, artifact, meta_dict)
-            
-            # Store metadata locally in instance provided we can get size etc?
-            # The cloud backend returns URI.
-            # We might want to fetch metadata back? Or construct what we can.
-            # For now, let's keep _metadata in sync for list() usage if we can.
-            # But cloud backend manages its own state possibly?
-            # Re-fetching metadata or estimating it.
-            # Cloud backend save flow didn't return metadata, just URI.
-            # We create a placeholder metadata object.
-            self._metadata[name] = ArtifactMetadata(
-                name=name,
-                version=self.version,
-                artifact_type=artifact_type,
-                created_at=datetime.utcnow(),
-                size_bytes=0, # Unknown without extra call or return from save
-                tags=tags,
-            )
-            return uri
-            
-        elif self.backend == "local":
-            return self._save_local(name, artifact, artifact_type, tags)
-        else:
-            return self._save_s3(name, artifact, artifact_type, tags)
+        # Delegate to backend
+        uri = self._backend_impl.save(name, artifact, meta_dict)
+        
+        # Keep local metadata cache in sync
+        self._metadata[name] = ArtifactMetadata(
+            name=name,
+            version=self.version,
+            artifact_type=artifact_type,
+            created_at=datetime.utcnow(),
+            size_bytes=0,  # Backend may have actual size
+            tags=tags,
+        )
+        
+        return uri
 
     def get(self, name: str) -> Any:
         """Load an artifact by name.
@@ -199,13 +201,7 @@ class ArtifactStore:
         Raises:
             KeyError: If artifact not found.
         """
-        if self.backend == "cloud" and self._backend_impl:
-            # We can pass name directly if relying on context in backend
-            return self._backend_impl.load(name)
-        elif self.backend == "local":
-            return self._load_local(name)
-        else:
-            return self._load_s3(name)
+        return self._backend_impl.load(name)
 
     def list(self) -> list[ArtifactMetadata]:
         """List all artifacts in this store.
@@ -213,9 +209,7 @@ class ArtifactStore:
         Returns:
             List of artifact metadata.
         """
-        if self.backend == "cloud" and self._backend_impl:
-            # Reload metadata from cloud
-            self._load_metadata()
+        self._load_metadata()
         return list(self._metadata.values())
         
     def delete(self, name: str) -> None:
@@ -224,146 +218,18 @@ class ArtifactStore:
         Args:
            name: Artifact name to delete
         """
-        if self.backend == "cloud" and self._backend_impl:
-             self._backend_impl.delete(name)
-             if name in self._metadata:
-                 del self._metadata[name]
-        elif self.backend == "local":
-            raise NotImplementedError("Local delete not implemented")
-        else:
-             raise NotImplementedError("S3 delete not implemented")
-
-    def _save_local(
-        self, name: str, artifact: Any, artifact_type: str, tags: dict
-    ) -> str:
-        """Save artifact to local filesystem."""
-        artifact_file = self.artifact_path / f"{name}.pkl"
-
-        with open(artifact_file, "wb") as f:
-            pickle.dump(artifact, f)
-
-        metadata = ArtifactMetadata(
-            name=name,
-            version=self.version,
-            artifact_type=artifact_type,
-            created_at=datetime.utcnow(),
-            size_bytes=artifact_file.stat().st_size,
-            tags=tags,
-        )
-        self._metadata[name] = metadata
-        self._save_metadata()
-
-        return str(artifact_file)
-
-    def _load_local(self, name: str) -> Any:
-        """Load artifact from local filesystem."""
-        artifact_file = self.artifact_path / f"{name}.pkl"
-        if not artifact_file.exists():
-            raise KeyError(f"Artifact not found: {name}")
-
-        with open(artifact_file, "rb") as f:
-            return pickle.load(f)
-
-    def _save_s3(
-        self, name: str, artifact: Any, artifact_type: str, tags: dict
-    ) -> str:
-        """Save artifact to S3."""
-        import boto3
-
-        s3 = boto3.client("s3")
-        key = f"{self.project}/{self.version}/{name}.pkl"
-
-        with tempfile.NamedTemporaryFile(suffix=".pkl", delete=False) as f:
-            pickle.dump(artifact, f)
-            temp_path = f.name
-
-        try:
-            s3.upload_file(temp_path, self.s3_bucket, key)
-            size = os.path.getsize(temp_path)
-        finally:
-            os.unlink(temp_path)
-
-        metadata = ArtifactMetadata(
-            name=name,
-            version=self.version,
-            artifact_type=artifact_type,
-            created_at=datetime.utcnow(),
-            size_bytes=size,
-            tags=tags,
-        )
-        self._metadata[name] = metadata
-        self._save_metadata()
-
-        return f"s3://{self.s3_bucket}/{key}"
-
-    def _load_s3(self, name: str) -> Any:
-        """Load artifact from S3."""
-        import boto3
-
-        s3 = boto3.client("s3")
-        key = f"{self.project}/{self.version}/{name}.pkl"
-
-        with tempfile.NamedTemporaryFile(suffix=".pkl", delete=False) as f:
-            s3.download_file(self.s3_bucket, key, f.name)
-            temp_path = f.name
-
-        try:
-            with open(temp_path, "rb") as f:
-                return pickle.load(f)
-        finally:
-            os.unlink(temp_path)
-
-    def _save_metadata(self) -> None:
-        """Save metadata index."""
-        if self.backend == "local":
-            meta_file = self.artifact_path / "metadata.json"
-            data = {k: v.model_dump(mode="json") for k, v in self._metadata.items()}
-            meta_file.write_text(json.dumps(data, indent=2, default=str))
-        elif self.backend == "cloud":
-            pass # Cloud backend manages its own metadata
-        else:
-            import boto3
-
-            s3 = boto3.client("s3")
-            key = f"{self.project}/{self.version}/metadata.json"
-            data = {k: v.model_dump(mode="json") for k, v in self._metadata.items()}
-            s3.put_object(
-                Bucket=self.s3_bucket,
-                Key=key,
-                Body=json.dumps(data, indent=2, default=str),
-            )
+        self._backend_impl.delete(name)
+        if name in self._metadata:
+            del self._metadata[name]
 
     def _load_metadata(self) -> None:
-        """Load metadata index."""
-        if self.backend == "local":
-            meta_file = self.artifact_path / "metadata.json"
-            if meta_file.exists():
-                data = json.loads(meta_file.read_text())
-                self._metadata = {
-                    k: ArtifactMetadata.model_validate(v) for k, v in data.items()
-                }
-        elif self.backend == "cloud":
-            if self._backend_impl:
-                # We can't easily sync full metadata object from list() URIs directly
-                # assuming the backend list returns URIs.
-                # Ideally, the backend list would return metadata objects or we fetch them.
-                # For now, let's just leave empty or try to list?
-                # The task said use existing API which supports list.
-                # If we want to populate _metadata, we'd need more info from backend.
-                pass
-        else:
-            import boto3
-
-            s3 = boto3.client("s3")
-            key = f"{self.project}/{self.version}/metadata.json"
-            try:
-                response = s3.get_object(Bucket=self.s3_bucket, Key=key)
-                data = json.loads(response["Body"].read())
-                self._metadata = {
-                    k: ArtifactMetadata.model_validate(v) for k, v in data.items()
-                }
-            except s3.exceptions.NoSuchKey:
-                pass
+        """Load metadata from backend."""
+        # Try to get metadata from backend if it supports it
+        if hasattr(self._backend_impl, 'get_metadata_index'):
+            data = self._backend_impl.get_metadata_index()
+            self._metadata = {
+                k: ArtifactMetadata.model_validate(v) for k, v in data.items()
+            }
 
     def __repr__(self) -> str:
         return f"ArtifactStore({self.project}@{self.version}, backend={self.backend})"

@@ -51,7 +51,6 @@ docs/api/
 │   ├── deploy.html         # Deployment target docs
 │   ├── features.html       # Feature engineering docs
 │   ├── generators.html     # Code generator docs
-│   ├── mcp.html            # MCP server docs
 │   ├── models.html         # Model base class docs
 │   ├── monitoring.html     # Monitoring/drift docs
 │   ├── scanners.html       # Project scanner docs
@@ -151,7 +150,6 @@ The following public modules are documented:
 | `geronimo.deploy` | Deployment targets and protocols |
 | `geronimo.features` | Feature engineering |
 | `geronimo.generators` | Terraform, Docker, pipeline generators |
-| `geronimo.mcp` | Model Context Protocol server |
 | `geronimo.models` | Model base class |
 | `geronimo.monitoring` | Drift detection and monitoring |
 | `geronimo.scanners` | Project analysis |

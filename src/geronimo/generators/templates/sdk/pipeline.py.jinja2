@@ -1,0 +1,65 @@
+"""Pipeline definition - batch processing logic."""
+
+from geronimo.batch import Pipeline
+from .model import ProjectModel
+
+
+class BatchPipeline(Pipeline):
+    """Batch scoring pipeline.
+    
+    This is a working demo pipeline. Replace run() with your actual 
+    implementation once you have a trained model.
+    
+    To train a model:
+        uv run python -m {{ project_name | snake_case }}.train
+    """
+    
+    model_class = ProjectModel
+
+    def initialize(self):
+        """Initialize pipeline.
+        
+        Demo mode: Skip model loading if no artifacts exist.
+        """
+        try:
+            super().initialize()
+        except Exception:
+            # Demo mode: continue without trained model
+            self.model = None
+            self._is_initialized = True
+            print("Running in DEMO MODE (no trained model)")
+
+    def execute(self):
+        """Execute the pipeline.
+        
+        Demo mode: Return sample results if no model loaded.
+        """
+        if self.model is None:
+            # Demo mode
+            return self.run()
+        return super().execute()
+
+    def run(self):
+        """Execute batch processing.
+        
+        Demo mode implementation - replace with your actual logic.
+        
+        Returns:
+            Dict with execution results
+        """
+        # Demo mode: return sample results
+        # TODO: Replace with actual batch logic once model is trained
+        #
+        # Example implementation:
+        # data = self.data_source.load()
+        # X = self.model.features.transform(data)
+        # predictions = self.model.predict(X)
+        # results = data.assign(prediction=predictions)
+        # output_path = self.save_results(results)
+        # return {"samples_scored": len(results), "output_path": output_path}
+        
+        return {
+            "status": "demo_mode",
+            "message": "Pipeline executed successfully in demo mode",
+            "samples_scored": 0,
+        }

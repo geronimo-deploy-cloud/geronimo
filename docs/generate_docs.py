@@ -27,7 +27,6 @@ MODULES = [
     "geronimo.deploy",
     "geronimo.features",
     "geronimo.generators",
-    "geronimo.mcp",
     "geronimo.models",
     "geronimo.monitoring",
     "geronimo.scanners",

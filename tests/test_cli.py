@@ -202,6 +202,121 @@ class TestCLIKeys:
         assert "list-test" in result.output
 
 
+class TestCLIKeysSync:
+    """Tests for keys sync command."""
+
+    def test_keys_sync_help(self):
+        """Test sync --help shows options."""
+        result = runner.invoke(app, ["keys", "sync", "--help"])
+        assert result.exit_code == 0
+        assert "sync" in result.output.lower()
+        assert "--key-ids" in result.output
+        assert "--interactive" in result.output
+
+    def test_keys_sync_no_keys(self, temp_dir):
+        """Test sync with no local keys."""
+        keys_file = temp_dir / "empty_keys.json"
+        keys_file.write_text('{"keys": {}}')
+        
+        result = runner.invoke(
+            app,
+            ["keys", "sync", "--keys-file", str(keys_file)],
+        )
+        
+        assert result.exit_code == 0
+        assert "No local API keys found" in result.output
+
+    def test_keys_sync_missing_key_ids(self, temp_dir):
+        """Test sync with non-existent key IDs."""
+        keys_file = temp_dir / "keys.json"
+        
+        # Create a key
+        runner.invoke(
+            app,
+            ["keys", "create", "--name", "real-key", "--keys-file", str(keys_file)],
+        )
+        
+        # Try to sync a non-existent key
+        result = runner.invoke(
+            app,
+            ["keys", "sync", "--keys-file", str(keys_file), "--key-ids", "nonexistent"],
+        )
+        
+        assert result.exit_code == 1
+        assert "No matching keys found" in result.output
+
+    def test_keys_sync_specific_keys(self, temp_dir, monkeypatch):
+        """Test sync with specific key IDs."""
+        from unittest.mock import MagicMock
+        
+        keys_file = temp_dir / "keys.json"
+        
+        # Create two keys
+        runner.invoke(
+            app,
+            ["keys", "create", "--name", "key-1", "--keys-file", str(keys_file)],
+        )
+        runner.invoke(
+            app,
+            ["keys", "create", "--name", "key-2", "--keys-file", str(keys_file)],
+        )
+        
+        # Get the key IDs
+        import json
+        data = json.loads(keys_file.read_text())
+        key_ids = list(data["keys"].keys())
+        
+        # Mock the cloud client
+        mock_instance = MagicMock()
+        mock_instance.sync_keys.return_value = {"synced": 1, "skipped": 0}
+        mock_client_class = MagicMock(return_value=mock_instance)
+        
+        monkeypatch.setattr("geronimo.cloud.client.GeronimoCloudClient", mock_client_class)
+        
+        # Sync only the first key
+        result = runner.invoke(
+            app,
+            ["keys", "sync", "--keys-file", str(keys_file), "--key-ids", key_ids[0]],
+        )
+        
+        assert result.exit_code == 0
+        assert "Keys synced to Geronimo Cloud" in result.output
+        
+        # Verify only one key was synced
+        call_args = mock_instance.sync_keys.call_args
+        assert len(call_args[0][0]) == 1
+
+    def test_keys_sync_not_authenticated(self, temp_dir, monkeypatch):
+        """Test sync without authentication."""
+        from unittest.mock import MagicMock
+        
+        keys_file = temp_dir / "keys.json"
+        
+        # Create a key
+        runner.invoke(
+            app,
+            ["keys", "create", "--name", "auth-test", "--keys-file", str(keys_file)],
+        )
+        
+        # Mock the cloud client to raise auth error
+        mock_instance = MagicMock()
+        mock_instance.sync_keys.side_effect = RuntimeError(
+            "Not authenticated. Run 'geronimo auth login' first."
+        )
+        mock_client_class = MagicMock(return_value=mock_instance)
+        
+        monkeypatch.setattr("geronimo.cloud.client.GeronimoCloudClient", mock_client_class)
+        
+        result = runner.invoke(
+            app,
+            ["keys", "sync", "--keys-file", str(keys_file)],
+        )
+        
+        assert result.exit_code == 1
+        assert "Not authenticated" in result.output
+        assert "geronimo auth login" in result.output
+
+
 class TestCLIGenerate:
     """Tests for generate commands."""
 

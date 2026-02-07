@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 import httpx
 
 from geronimo import __version__
+from geronimo.cloud.http_utils import api_client, transfer_client
 
 
 class GeronimoCloudClient:
@@ -45,11 +46,8 @@ class GeronimoCloudClient:
     def login(self, token: str) -> Dict[str, Any]:
         """Verify token and save credentials."""
         # Validate token with API
-        with httpx.Client(base_url=self.api_url) as client:
-            response = client.get(
-                "/auth/verify",
-                headers={"Authorization": f"Bearer {token}"}
-            )
+        with api_client(self.api_url, {"Authorization": f"Bearer {token}"}, operation="login") as client:
+            response = client.get("/auth/verify")
             response.raise_for_status()
             user_data = response.json()
             
@@ -76,7 +74,7 @@ class GeronimoCloudClient:
             raise RuntimeError("Not authenticated. Run 'geronimo auth login' first.")
 
         # 1. Create deployment record
-        with httpx.Client(base_url=self.api_url, headers=self.headers) as client:
+        with api_client(self.api_url, self.headers, operation="create_deployment") as client:
             resp = client.post("/deployments", json={
                 "project": project_name,
                 "config": config
@@ -88,31 +86,53 @@ class GeronimoCloudClient:
 
         # 2. Upload artifacts
         with open(zip_path, "rb") as f:
-            httpx.put(upload_url, content=f)
+            with transfer_client(operation="upload_deployment") as client:
+                client.put(upload_url, content=f)
             
         # 3. Trigger build/deploy
-        with httpx.Client(base_url=self.api_url, headers=self.headers) as client:
+        with api_client(self.api_url, self.headers, operation="start_deployment") as client:
             resp = client.post(f"/deployments/{deployment_id}/start")
             resp.raise_for_status()
             return resp.json()
 
     def get_status(self, deployment_id: str) -> Dict[str, Any]:
         """Get deployment status."""
-        with httpx.Client(base_url=self.api_url, headers=self.headers) as client:
+        with api_client(self.api_url, self.headers, operation="get_status") as client:
             resp = client.get(f"/deployments/{deployment_id}")
             resp.raise_for_status()
             return resp.json()
 
     def get_logs(self, deployment_id: str) -> str:
         """Get build/runtime logs."""
-        with httpx.Client(base_url=self.api_url, headers=self.headers) as client:
+        with api_client(self.api_url, self.headers, operation="get_logs") as client:
             resp = client.get(f"/deployments/{deployment_id}/logs")
             resp.raise_for_status()
             return resp.text
 
     def teardown(self, deployment_id: str) -> Dict[str, Any]:
         """Teardown a deployment."""
-        with httpx.Client(base_url=self.api_url, headers=self.headers) as client:
+        with api_client(self.api_url, self.headers, operation="teardown") as client:
             resp = client.delete(f"/deployments/{deployment_id}")
+            resp.raise_for_status()
+            return resp.json()
+
+    def sync_keys(self, keys: list[Dict[str, Any]]) -> Dict[str, Any]:
+        """Sync local API keys to Geronimo Cloud.
+        
+        Args:
+            keys: List of key dictionaries from APIKey.to_dict().
+            
+        Returns:
+            Response with synced/skipped counts.
+            
+        Raises:
+            RuntimeError: If not authenticated.
+            httpx.HTTPStatusError: If API request fails.
+        """
+        if not self.token:
+            raise RuntimeError("Not authenticated. Run 'geronimo auth login' first.")
+        
+        with api_client(self.api_url, self.headers, operation="sync_keys") as client:
+            resp = client.post("/inference-keys/sync", json={"keys": keys})
             resp.raise_for_status()
             return resp.json()

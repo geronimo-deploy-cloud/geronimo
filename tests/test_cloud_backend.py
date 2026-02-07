@@ -17,6 +17,7 @@ class TestGeronimoCloudArtifactBackend:
         client = MagicMock()
         client.api_url = "https://api.test"
         client.headers = {"Authorization": "Bearer test"}
+        client.token = "test-token"
         return client
 
     @pytest.fixture
@@ -28,7 +29,7 @@ class TestGeronimoCloudArtifactBackend:
             client=mock_client
         )
 
-    @patch("geronimo.artifacts.cloud_backend.httpx.Client")
+    @patch("geronimo.cloud.http_utils.httpx.Client")
     def test_save_flow(self, mock_httpx, backend):
         """Test save flow: cloud-save -> upload -> confirm."""
         # Setup mocks
@@ -54,7 +55,7 @@ class TestGeronimoCloudArtifactBackend:
         # Check calls
         # 1. cloud-save
         mock_http.post.assert_any_call(
-            "/artifacts/cloud-save",
+            "/v1/artifacts/cloud-save",
             json={
                 "project": "test-project",
                 "version": "1.0.0",
@@ -66,11 +67,11 @@ class TestGeronimoCloudArtifactBackend:
         
         # 3. confirm
         mock_http.post.assert_any_call(
-            "/artifacts/artifact-123/confirm",
+            "/v1/artifacts/artifact-123/confirm",
             json={"size_bytes": ANY}
         )
 
-    @patch("geronimo.artifacts.cloud_backend.httpx.Client")
+    @patch("geronimo.cloud.http_utils.httpx.Client")
     def test_load_flow(self, mock_httpx, backend):
         """Test load flow: cloud-load -> download -> deserialize."""
         mock_http = mock_httpx.return_value.__enter__.return_value
@@ -89,7 +90,7 @@ class TestGeronimoCloudArtifactBackend:
         assert data == {"data": 123}
         
         mock_http.post.assert_called_with(
-            "/artifacts/cloud-load",
+            "/v1/artifacts/cloud-load",
             json={
                 "project": "test-project", 
                 "version": "1.0.0", 
@@ -100,7 +101,7 @@ class TestGeronimoCloudArtifactBackend:
         # Case 2: Load by URI
         backend.load("s3://bucket/u/p/v/other.pkl")
         mock_http.post.assert_called_with(
-            "/artifacts/cloud-load",
+            "/v1/artifacts/cloud-load",
             json={
                 "project": "p", 
                 "version": "v", 
@@ -108,7 +109,7 @@ class TestGeronimoCloudArtifactBackend:
             }
         )
 
-    @patch("geronimo.artifacts.cloud_backend.httpx.Client")
+    @patch("geronimo.cloud.http_utils.httpx.Client")
     def test_list(self, mock_httpx, backend):
         """Test list artifacts."""
         mock_http = mock_httpx.return_value.__enter__.return_value
@@ -121,11 +122,11 @@ class TestGeronimoCloudArtifactBackend:
         assert "s3://bucket/a.pkl" in uris
         
         mock_http.get.assert_called_with(
-            "/artifacts",
+            "/v1/artifacts",
             params={"project": "test-project", "version": "1.0.0"}
         )
 
-    @patch("geronimo.artifacts.cloud_backend.httpx.Client")
+    @patch("geronimo.cloud.http_utils.httpx.Client")
     def test_delete(self, mock_httpx, backend):
         """Test delete artifact."""
         mock_http = mock_httpx.return_value.__enter__.return_value
@@ -141,35 +142,75 @@ class TestGeronimoCloudArtifactBackend:
         # Verify
         # Search
         mock_http.get.assert_called_with(
-            "/artifacts",
+            "/v1/artifacts",
             params={"project": "test-project", "version": "1.0.0", "name": "model"}
         )
         # Delete
-        mock_http.delete.assert_called_with("/artifacts/art-123")
+        mock_http.delete.assert_called_with("/v1/artifacts/art-123")
 
 
 class TestArtifactStoreIntegration:
     """Test ArtifactStore integration with Cloud Backend."""
     
-    @patch("geronimo.artifacts.cloud_backend.GeronimoCloudArtifactBackend")
-    def test_cloud_backend_selection(self, MockBackend):
-        """Test that setting backend='cloud' uses the new backend."""
-        store = ArtifactStore(
-            project="p", 
-            version="v", 
-            backend="cloud"
+    def test_cloud_backend_selection(self):
+        """Test that setting backend='cloud' uses the cloud backend."""
+        with patch("geronimo.artifacts.cloud_backend.GeronimoCloudArtifactBackend") as MockBackend:
+            # Setup mock
+            mock_instance = MagicMock()
+            mock_instance.save.return_value = "s3://uri"
+            MockBackend.return_value = mock_instance
+            
+            # Create store
+            store = ArtifactStore(
+                project="p", 
+                version="v", 
+                backend="cloud"
+            )
+            
+            # Verify backend init was called
+            MockBackend.assert_called_with(project="p", version="v")
+            
+            # Verify save delegation
+            uri = store.save("model", [1, 2, 3])
+            assert uri == "s3://uri"
+            mock_instance.save.assert_called_once()
+            
+            arg_name = mock_instance.save.call_args[0][0]
+            assert arg_name == "model"
+
+    def test_namespace_parameter(self):
+        """Test namespace parameter is supported."""
+        client = MagicMock()
+        client.token = "test"
+        
+        backend = GeronimoCloudArtifactBackend(
+            project="p",
+            version="v",
+            namespace="shared",
+            client=client
         )
         
-        # Verify backend init
-        MockBackend.assert_called_with(project="p", version="v")
+        assert backend.namespace == "shared"
+
+    def test_authentication_check(self):
+        """Test that operations fail without authentication."""
+        client = MagicMock()
+        client.token = None  # No token
         
-        # Verify save delegation
-        mock_inst = MockBackend.return_value
-        mock_inst.save.return_value = "s3://uri"
+        backend = GeronimoCloudArtifactBackend(
+            project="p",
+            version="v",
+            client=client
+        )
         
-        uri = store.save("model", [1, 2, 3])
-        assert uri == "s3://uri"
-        mock_inst.save.assert_called_once()
+        with pytest.raises(RuntimeError, match="Not authenticated"):
+            backend.save("model", {}, {})
         
-        arg_name = mock_inst.save.call_args[0][0]
-        assert arg_name == "model"
+        with pytest.raises(RuntimeError, match="Not authenticated"):
+            backend.load("model")
+        
+        with pytest.raises(RuntimeError, match="Not authenticated"):
+            backend.list()
+        
+        with pytest.raises(RuntimeError, match="Not authenticated"):
+            backend.delete("model")

@@ -59,7 +59,8 @@ class DatabaseConnection(Protocol):
 class BaseDatabaseConnection(ABC):
     """Abstract base class for database connections.
     
-    Provides common functionality like context manager support.
+    Provides common functionality like context manager support
+    and shared execute/close implementations.
     """
     
     def __init__(self, connection_params: Optional[dict[str, Any]] = None):
@@ -76,15 +77,27 @@ class BaseDatabaseConnection(ABC):
         """Establish connection to the database."""
         pass
     
-    @abstractmethod
     def execute(self, sql: str) -> pd.DataFrame:
-        """Execute a SQL query and return results as DataFrame."""
-        pass
+        """Execute a SQL query and return results as DataFrame.
+        
+        Args:
+            sql: SQL query to execute.
+            
+        Returns:
+            DataFrame containing query results.
+            
+        Raises:
+            RuntimeError: If not connected.
+        """
+        if self._connection is None:
+            raise RuntimeError("Not connected. Call connect() first.")
+        return pd.read_sql(sql, self._connection)
     
-    @abstractmethod
     def close(self) -> None:
         """Close the database connection."""
-        pass
+        if self._connection:
+            self._connection.close()
+            self._connection = None
     
     def __enter__(self) -> "BaseDatabaseConnection":
         """Context manager entry."""
@@ -143,18 +156,6 @@ class SnowflakeConnection(BaseDatabaseConnection):
             "schema": self.connection_params.get("schema", os.getenv("SNOWFLAKE_SCHEMA")),
         }
         self._connection = snowflake.connector.connect(**conn_args)
-    
-    def execute(self, sql: str) -> pd.DataFrame:
-        """Execute query against Snowflake."""
-        if self._connection is None:
-            raise RuntimeError("Not connected. Call connect() first.")
-        return pd.read_sql(sql, self._connection)
-    
-    def close(self) -> None:
-        """Close Snowflake connection."""
-        if self._connection:
-            self._connection.close()
-            self._connection = None
 
 
 class PostgresConnection(BaseDatabaseConnection):
@@ -178,18 +179,6 @@ class PostgresConnection(BaseDatabaseConnection):
             "connection_string", os.getenv("POSTGRES_CONNECTION_STRING")
         )
         self._connection = psycopg2.connect(conn_str)
-    
-    def execute(self, sql: str) -> pd.DataFrame:
-        """Execute query against PostgreSQL."""
-        if self._connection is None:
-            raise RuntimeError("Not connected. Call connect() first.")
-        return pd.read_sql(sql, self._connection)
-    
-    def close(self) -> None:
-        """Close PostgreSQL connection."""
-        if self._connection:
-            self._connection.close()
-            self._connection = None
 
 
 class SQLServerConnection(BaseDatabaseConnection):
@@ -213,18 +202,6 @@ class SQLServerConnection(BaseDatabaseConnection):
             "connection_string", os.getenv("SQLSERVER_CONNECTION_STRING")
         )
         self._connection = pyodbc.connect(conn_str)
-    
-    def execute(self, sql: str) -> pd.DataFrame:
-        """Execute query against SQL Server."""
-        if self._connection is None:
-            raise RuntimeError("Not connected. Call connect() first.")
-        return pd.read_sql(sql, self._connection)
-    
-    def close(self) -> None:
-        """Close SQL Server connection."""
-        if self._connection:
-            self._connection.close()
-            self._connection = None
 
 
 def get_connection(

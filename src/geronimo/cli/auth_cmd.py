@@ -1,18 +1,16 @@
 """Authentication CLI commands."""
 
 import typer
-from rich.console import Console
 from rich.panel import Panel
 
 from geronimo.cloud.client import GeronimoCloudClient
+from geronimo.cli.utils import console, success, warning
 
 auth_app = typer.Typer(
     name="auth",
     help="Manage Geronimo Cloud authentication for developers.",
     no_args_is_help=True,
 )
-
-console = Console()
 
 
 @auth_app.command()
@@ -56,9 +54,9 @@ def logout() -> None:
     creds_dir = Path.home() / ".geronimo"
     if creds_dir.exists():
         shutil.rmtree(creds_dir)
-        console.print("[green]✓ Credentials cleared. Logged out.[/green]")
+        success("Credentials cleared. Logged out.")
     else:
-        console.print("[yellow]No credentials found. Already logged out.[/yellow]")
+        warning("No credentials found. Already logged out.")
 
 
 @auth_app.command()
@@ -68,11 +66,6 @@ def status() -> None:
     
     if client.token:
         try:
-            # Verify token is still valid by making a lightweight call or just decode if JWT (but verifying against server is better)
-            # For now re-use login verification logic without prompt if we had a dedicated verify endpoint, 
-            # but since we don't want to re-prompt, let's just show logged in state.
-            
-            # Ideally we check /auth/verify here too
             console.print(
                 Panel(
                     "[green]✓ Authenticated[/green]\n"

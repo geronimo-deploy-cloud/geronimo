@@ -3,11 +3,16 @@
 import json
 import tempfile
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Any
+from unittest.mock import Mock, MagicMock, patch
 
 import pandas as pd
 import pytest
 
+
+# =============================================================================
+# Directory and Path Fixtures
+# =============================================================================
 
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
@@ -15,6 +20,10 @@ def temp_dir() -> Generator[Path, None, None]:
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
 
+
+# =============================================================================
+# DataFrame Fixtures
+# =============================================================================
 
 @pytest.fixture
 def sample_df() -> pd.DataFrame:
@@ -39,6 +48,10 @@ def iris_df() -> pd.DataFrame:
     })
 
 
+# =============================================================================
+# Configuration Fixtures
+# =============================================================================
+
 @pytest.fixture
 def keys_file(temp_dir: Path) -> Path:
     """Create a temporary keys file."""
@@ -62,3 +75,146 @@ model:
   artifact_path: models/model.joblib
 """)
     return config_path
+
+
+# =============================================================================
+# Mock HTTP Client Fixtures
+# =============================================================================
+
+@pytest.fixture
+def mock_http_client() -> MagicMock:
+    """Mock httpx.Client for API testing.
+    
+    Example:
+        def test_api_call(mock_http_client):
+            mock_http_client.post.return_value.json.return_value = {"id": "123"}
+            # ... test logic ...
+    """
+    client = MagicMock()
+    
+    # Configure default response behavior
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {}
+    response.raise_for_status = MagicMock()
+    
+    client.get.return_value = response
+    client.post.return_value = response
+    client.put.return_value = response
+    client.delete.return_value = response
+    
+    # Make it work as context manager
+    client.__enter__ = MagicMock(return_value=client)
+    client.__exit__ = MagicMock(return_value=False)
+    
+    return client
+
+
+@pytest.fixture
+def mock_http_response() -> MagicMock:
+    """Create a mock HTTP response.
+    
+    Example:
+        def test_with_response(mock_http_response):
+            mock_http_response.json.return_value = {"data": "value"}
+            mock_http_response.status_code = 201
+    """
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {}
+    response.text = ""
+    response.content = b""
+    response.raise_for_status = MagicMock()
+    return response
+
+
+# =============================================================================
+# Artifact Store Fixtures
+# =============================================================================
+
+@pytest.fixture
+def temp_artifact_store(temp_dir: Path):
+    """Temporary local artifact store for testing.
+    
+    Example:
+        def test_artifact_save(temp_artifact_store):
+            uri = temp_artifact_store.save("model", my_model)
+            loaded = temp_artifact_store.get("model")
+    """
+    from geronimo.artifacts import ArtifactStore
+    
+    store = ArtifactStore(
+        project="test-project",
+        version="1.0.0",
+        backend="local",
+        base_path=str(temp_dir)
+    )
+    return store
+
+
+@pytest.fixture
+def mock_cloud_artifact_backend() -> MagicMock:
+    """Mock cloud artifact backend for testing.
+    
+    Example:
+        def test_cloud_save(mock_cloud_artifact_backend):
+            mock_cloud_artifact_backend.save.return_value = "s3://bucket/path"
+    """
+    backend = MagicMock()
+    backend.save.return_value = "s3://test-bucket/artifacts/test.pkl"
+    backend.load.return_value = {"mock": "data"}
+    backend.list.return_value = ["s3://test-bucket/artifacts/test.pkl"]
+    backend.delete.return_value = None
+    return backend
+
+
+# =============================================================================
+# Cloud Client Fixtures
+# =============================================================================
+
+@pytest.fixture
+def mock_cloud_client() -> MagicMock:
+    """Mock GeronimoCloudClient for testing.
+    
+    Example:
+        def test_deploy(mock_cloud_client):
+            mock_cloud_client.deploy_project.return_value = {"id": "deploy-123"}
+    """
+    client = MagicMock()
+    client.api_url = "https://api.test.geronimo.cloud"
+    client.token = "test-token"
+    client.headers = {"Authorization": "Bearer test-token"}
+    
+    # Default return values
+    client.login.return_value = {"email": "test@example.com", "org": "test-org"}
+    client.deploy_project.return_value = {"id": "deploy-123", "status": "pending"}
+    client.get_deployment_status.return_value = {"status": "running"}
+    client.sync_keys.return_value = {"synced": 1, "skipped": 0}
+    
+    return client
+
+
+# =============================================================================
+# Database Fixtures
+# =============================================================================
+
+@pytest.fixture
+def mock_db_connection() -> MagicMock:
+    """Mock database connection for testing.
+    
+    Example:
+        def test_query(mock_db_connection, sample_df):
+            mock_db_connection.execute.return_value = sample_df
+    """
+    conn = MagicMock()
+    conn._connection = MagicMock()
+    conn.execute.return_value = pd.DataFrame()
+    conn.connect.return_value = None
+    conn.close.return_value = None
+    
+    # Context manager support
+    conn.__enter__ = MagicMock(return_value=conn)
+    conn.__exit__ = MagicMock(return_value=False)
+    
+    return conn
+

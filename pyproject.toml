@@ -83,7 +83,14 @@ dev = [
     "build>=1.0.0",
     "fastapi>=0.128.0",
     "httpx>=0.28.1",
+    "mypy>=1.8.0",
     "pdoc>=15.0.0",
     "pytest-cov>=7.0.0",
     "twine>=6.0.0",
 ]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

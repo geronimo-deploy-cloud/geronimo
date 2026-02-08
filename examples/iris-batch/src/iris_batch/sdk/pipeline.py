@@ -4,7 +4,8 @@ from typing import Optional
 import pandas as pd
 from pathlib import Path
 
-from geronimo.pipelines import BatchPipeline, Schedule
+from geronimo.batch.pipeline import BatchPipeline
+from geronimo.batch.schedule import Schedule
 from geronimo.artifacts import ArtifactStore
 from .model import IrisModel
 from .data_sources import training_data

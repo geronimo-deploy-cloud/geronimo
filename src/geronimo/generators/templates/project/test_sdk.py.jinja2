@@ -1,0 +1,25 @@
+"""Tests for SDK components."""
+
+import pytest
+
+
+class TestProjectModel:
+    """Tests for ProjectModel."""
+
+    def test_model_import(self):
+        """Test model can be imported."""
+        from {{ project_name | snake_case }}.sdk.model import {{ project_name | pascal_case }}Model
+        
+        model = {{ project_name | pascal_case }}Model()
+        assert model.name == "{{ project_name }}"
+
+
+class TestProjectFeatures:
+    """Tests for ProjectFeatures."""
+
+    def test_features_import(self):
+        """Test features can be imported."""
+        from {{ project_name | snake_case }}.sdk.features import {{ project_name | pascal_case }}Features
+        
+        features = {{ project_name | pascal_case }}Features()
+        assert features is not None

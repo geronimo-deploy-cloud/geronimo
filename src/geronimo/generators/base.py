@@ -22,7 +22,7 @@ class BaseGenerator(ABC):
     def __init__(self) -> None:
         """Initialize the generator with Jinja2 environment."""
         self._env = Environment(
-            loader=PackageLoader("geronimo", "templates"),
+            loader=PackageLoader("geronimo.generators", "templates"),
             autoescape=select_autoescape(["html", "xml"]),
             trim_blocks=True,
             lstrip_blocks=True,

@@ -1,7 +1,7 @@
 """MCP Server implementation for the ML model."""
 
 from typing import Any
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 # We need to import the project specific modules. 
 # These imports will be fixed by the generator to match the project name.

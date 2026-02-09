@@ -15,10 +15,10 @@ import os
 from typing import Any
 
 try:
-    from mcp.server.fastmcp import FastMCP
+    from fastmcp import FastMCP
 except ImportError:
     raise ImportError(
-        "MCP dependencies not installed. Install with: pip install mcp"
+        "FastMCP not installed. Install with: pip install fastmcp"
     )
 
 from {{ project_name | snake_case }}.sdk.endpoint import PredictEndpoint

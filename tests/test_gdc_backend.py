@@ -1,15 +1,15 @@
-"""Tests for GeronimoCloudArtifactBackend."""
+"""Tests for GeronimoDeployCloudArtifactBackend."""
 
 import pickle
 from unittest.mock import MagicMock, patch, ANY
 
 import pytest
-from geronimo.artifacts.cloud_backend import GeronimoCloudArtifactBackend
+from geronimo.artifacts.gdc_backend import GeronimoDeployCloudArtifactBackend
 from geronimo.artifacts import ArtifactStore
 
 
-class TestGeronimoCloudArtifactBackend:
-    """Tests for Cloud Backend."""
+class TestGeronimoDeployCloudArtifactBackend:
+    """Tests for GDC Backend."""
 
     @pytest.fixture
     def mock_client(self):
@@ -23,7 +23,7 @@ class TestGeronimoCloudArtifactBackend:
     @pytest.fixture
     def backend(self, mock_client):
         """Backend instance with mock client."""
-        return GeronimoCloudArtifactBackend(
+        return GeronimoDeployCloudArtifactBackend(
             project="test-project",
             version="1.0.0",
             client=mock_client
@@ -152,9 +152,9 @@ class TestGeronimoCloudArtifactBackend:
 class TestArtifactStoreIntegration:
     """Test ArtifactStore integration with Cloud Backend."""
     
-    def test_cloud_backend_selection(self):
-        """Test that setting backend='cloud' uses the cloud backend."""
-        with patch("geronimo.artifacts.cloud_backend.GeronimoCloudArtifactBackend") as MockBackend:
+    def test_gdc_backend_selection(self):
+        """Test that setting backend='gdc' uses the GDC backend."""
+        with patch("geronimo.artifacts.gdc_backend.GeronimoDeployCloudArtifactBackend") as MockBackend:
             # Setup mock
             mock_instance = MagicMock()
             mock_instance.save.return_value = "s3://uri"
@@ -164,7 +164,7 @@ class TestArtifactStoreIntegration:
             store = ArtifactStore(
                 project="p", 
                 version="v", 
-                backend="cloud"
+                backend="gdc"
             )
             
             # Verify backend init was called
@@ -183,7 +183,7 @@ class TestArtifactStoreIntegration:
         client = MagicMock()
         client.token = "test"
         
-        backend = GeronimoCloudArtifactBackend(
+        backend = GeronimoDeployCloudArtifactBackend(
             project="p",
             version="v",
             namespace="shared",
@@ -197,7 +197,7 @@ class TestArtifactStoreIntegration:
         client = MagicMock()
         client.token = None  # No token
         
-        backend = GeronimoCloudArtifactBackend(
+        backend = GeronimoDeployCloudArtifactBackend(
             project="p",
             version="v",
             client=client

@@ -7,7 +7,7 @@ from geronimo.artifacts.store import ArtifactStore
 from geronimo.artifacts.protocol import ArtifactBackend
 from geronimo.artifacts.local_backend import LocalArtifactBackend
 from geronimo.artifacts.s3_backend import S3ArtifactBackend
-from geronimo.artifacts.cloud_backend import GeronimoCloudArtifactBackend
+from geronimo.artifacts.gdc_backend import GeronimoDeployCloudArtifactBackend
 
 # Optional MLflow backend
 try:
@@ -20,6 +20,7 @@ __all__ = [
     "ArtifactBackend",
     "LocalArtifactBackend",
     "S3ArtifactBackend",
-    "GeronimoCloudArtifactBackend",
+    "GeronimoDeployCloudArtifactBackend",
     "MLflowArtifactStore",
 ]
+

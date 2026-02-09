@@ -44,7 +44,7 @@ def config_init():
     console.print("[bold]Artifact Storage Backend[/bold]")
     console.print("  [dim]local[/dim]  - Store artifacts in ~/.geronimo/artifacts")
     console.print("  [dim]s3[/dim]     - Store artifacts in your S3 bucket")
-    console.print("  [dim]cloud[/dim]  - Store artifacts in Geronimo Cloud (requires auth)\n")
+    console.print("  [dim]gdc[/dim]  - Store artifacts in Geronimo Deploy Cloud (requires auth)\n")
     
     backend = typer.prompt(
         "Select backend",
@@ -52,7 +52,7 @@ def config_init():
         type=str,
     )
     
-    if backend not in ("local", "s3", "cloud"):
+    if backend not in ("local", "s3", "gdc"):
         console.print(f"[red]Invalid backend: {backend}. Using 'local'.[/red]")
         backend = "local"
     
@@ -62,8 +62,8 @@ def config_init():
             "S3 bucket name",
             default="ml-artifacts",
         )
-    elif backend == "cloud":
-        console.print("\n[yellow]Note:[/yellow] Cloud backend requires authentication.")
+    elif backend == "gdc":
+        console.print("\n[yellow]Note:[/yellow] Deploy Cloud backend requires authentication.")
         console.print("Run [bold]geronimo auth login[/bold] to authenticate.\n")
     
     # Create config
@@ -113,14 +113,14 @@ def config_show():
     dim(f"\nConfig file: {USER_CONFIG_FILE}\n")
     
     # Show auth status for cloud backend
-    if config.artifacts.backend == "cloud":
+    if config.artifacts.backend == "gdc":
         try:
             from geronimo.cli.auth_cmd import get_current_user
             user = get_current_user()
             if user:
                 success(f"Authenticated as {user}")
             else:
-                console.print("[yellow]⚠ Cloud backend requires authentication.[/yellow]")
+                console.print("[yellow]⚠ GDC backend requires authentication.[/yellow]")
                 console.print("  Run [bold]geronimo auth login[/bold] to authenticate.\n")
         except Exception:
             console.print("[yellow]⚠ Could not check authentication status.[/yellow]\n")
@@ -144,7 +144,7 @@ def config_set(
     else:
         console.print(f"[red]✗[/red] Invalid key or value: {key}={value}")
         console.print("\nValid keys:")
-        console.print("  artifacts.backend   - local, s3, or cloud")
+        console.print("  artifacts.backend   - local, s3, or gdc")
         console.print("  artifacts.s3_bucket - S3 bucket name")
         console.print("  artifacts.base_path - Local storage path")
         console.print("  defaults.framework  - ML framework (sklearn, pytorch, etc.)")

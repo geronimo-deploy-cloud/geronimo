@@ -2169,12 +2169,12 @@ def main():
     
     # ArtifactStore uses your global config from ~/.geronimo/config.yaml
     # Run `geronimo config show` to see current settings
-    # Run `geronimo config init` to change backend (local, s3, or cloud)
+    # Run `geronimo config init` to change backend (local, s3, or gdc)
     store = ArtifactStore(
         project="{context["project_name"]}",
         version="1.0.0",
         # backend defaults to your global config (~/.geronimo/config.yaml)
-        # Override here if needed: backend="local", backend="s3", backend="cloud"
+        # Override here if needed: backend="local", backend="s3", backend="gdc"
     )
     model.save(store)
     print(f"   Saved artifacts (backend: {{store.backend}})")

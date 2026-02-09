@@ -1,4 +1,4 @@
-"""Geronimo Cloud Artifact Backend."""
+"""Geronimo Deploy Cloud Artifact Backend."""
 
 import logging
 import os
@@ -13,10 +13,10 @@ from geronimo.deploy_cloud.http_utils import api_client, transfer_client, TRANSF
 logger = logging.getLogger(__name__)
 
 
-class GeronimoCloudArtifactBackend(ArtifactBackend):
-    """Artifact backend for Geronimo Cloud.
+class GeronimoDeployCloudArtifactBackend(ArtifactBackend):
+    """Artifact backend for Geronimo Deploy Cloud.
 
-    Stores artifacts using the Geronimo Cloud API with support for
+    Stores artifacts using the Geronimo Deploy Cloud API with support for
     cross-user access via namespaces.
     """
 

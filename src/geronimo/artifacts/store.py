@@ -51,7 +51,7 @@ class ArtifactStore:
         self,
         project: str,
         version: str,
-        backend: Optional[Union[Literal["local", "s3", "cloud"], ArtifactBackend]] = None,
+        backend: Optional[Union[Literal["local", "s3", "gdc"], ArtifactBackend]] = None,
         base_path: Optional[str] = None,
         s3_bucket: Optional[str] = None,
     ):
@@ -60,7 +60,7 @@ class ArtifactStore:
         Args:
             project: Project name.
             version: Version string (e.g., "1.2.0").
-            backend: Storage backend ("local", "s3", "cloud") or custom ArtifactBackend instance.
+            backend: Storage backend ("local", "s3", "gdc") or custom ArtifactBackend instance.
                      Defaults to value from ~/.geronimo/config.yaml.
             base_path: Base path for local storage.
                        Defaults to ~/.geronimo/artifacts.
@@ -116,9 +116,9 @@ class ArtifactStore:
                 version=self.version,
                 bucket=self.s3_bucket,
             )
-        elif self.backend == "cloud":
-            from geronimo.artifacts.cloud_backend import GeronimoCloudArtifactBackend
-            return GeronimoCloudArtifactBackend(
+        elif self.backend == "gdc":
+            from geronimo.artifacts.gdc_backend import GeronimoDeployCloudArtifactBackend
+            return GeronimoDeployCloudArtifactBackend(
                 project=self.project,
                 version=self.version,
             )
@@ -130,7 +130,7 @@ class ArtifactStore:
         cls,
         project: str,
         version: str,
-        backend: Optional[Literal["local", "s3", "cloud"]] = None,
+        backend: Optional[Literal["local", "s3", "gdc"]] = None,
         **kwargs,
     ) -> "ArtifactStore":
         """Load existing artifact store.

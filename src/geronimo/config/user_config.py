@@ -21,7 +21,7 @@ USER_CONFIG_FILE = USER_CONFIG_DIR / "config.yaml"
 class ArtifactConfig:
     """Configuration for ArtifactStore defaults."""
     
-    backend: Literal["local", "s3", "cloud"] = "local"
+    backend: Literal["local", "s3", "gdc"] = "local"
     s3_bucket: Optional[str] = None
     base_path: str = "~/.geronimo/artifacts"
 
@@ -155,7 +155,7 @@ def set_config_value(key: str, value: str) -> bool:
     
     if section == "artifacts":
         if field_name == "backend":
-            if value not in ("local", "s3", "cloud"):
+            if value not in ("local", "s3", "gdc"):
                 return False
             config.artifacts.backend = value
         elif field_name == "s3_bucket":

@@ -24,6 +24,23 @@ from geronimo.config.schema import (
 from geronimo.generators.base import BaseGenerator
 from geronimo.generators.template_engine import TemplateEngine
 
+CORE_DEPS = [
+    "geronimo",
+    "pydantic>=2.5.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "boto3>=1.34.0",
+]
+
+REALTIME_DEPS = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "mcp>=0.1.0",
+]
+
+BATCH_DEPS = [
+    "metaflow>=2.10.0",
+]
 
 class ProjectGenerator(BaseGenerator):
     """Generates a complete FastAPI ML project structure."""
@@ -67,32 +84,15 @@ class ProjectGenerator(BaseGenerator):
     def _get_template_dependencies(self) -> list[str]:
         """Get template-specific dependencies."""
         # Core deps for all templates
-        core = [
-            "geronimo",
-            "pydantic>=2.5.0",
-            "numpy>=1.24.0",
-            "pandas>=2.0.0",
-            "boto3>=1.34.0",
-        ]
+        core = CORE_DEPS
 
         # Template-specific deps
         if self.template == "realtime":
-            template_deps = [
-                "fastapi>=0.109.0",
-                "uvicorn[standard]>=0.27.0",
-                "mcp>=0.1.0",
-            ]
+            template_deps = REALTIME_DEPS
         elif self.template == "batch":
-            template_deps = [
-                "metaflow>=2.10.0",
-            ]
+            template_deps = BATCH_DEPS
         else:  # both
-            template_deps = [
-                "fastapi>=0.109.0",
-                "uvicorn[standard]>=0.27.0",
-                "mcp>=0.1.0",
-                "metaflow>=2.10.0",
-            ]
+            template_deps = REALTIME_DEPS + BATCH_DEPS
 
         # Framework-specific deps
         framework_deps = self._get_framework_dependencies()
@@ -1011,29 +1011,43 @@ This app integrates:
 - MCP server for AI agent integration (at /mcp)
 """
 
-import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any
 
+from geronimo.config.loader import load_config
 from {context["project_name_snake"]}.sdk.endpoint import PredictEndpoint
 from {context["project_name_snake"]}.monitoring.middleware import MonitoringMiddleware
 from {context["project_name_snake"]}.monitoring.metrics import MetricsCollector
 
 
 # =============================================================================
-# Configuration - customize these values
+# Configuration - loaded from geronimo.yaml
 # =============================================================================
 
-PROJECT_NAME = "{context["project_name"]}"
+def _find_config() -> Path:
+    \"\"\"Find geronimo.yaml in current or parent directories.\"\"\"
+    current = Path.cwd()
+    for _ in range(5):  # Search up to 5 levels
+        config_path = current / "geronimo.yaml"
+        if config_path.exists():
+            return config_path
+        current = current.parent
+    return Path("geronimo.yaml")
+
+_config_path = _find_config()
+_config = load_config(_config_path) if _config_path.exists() else None
+
+PROJECT_NAME = _config.project.name if _config else "{context["project_name"]}"
 
 # Metrics backend: "cloudwatch", "local", or custom
 METRICS_BACKEND = "local"  # TODO: Change to "cloudwatch" for production
 
-# MCP agent integration (set ENABLE_MCP_AGENT=false to disable)
-ENABLE_MCP = os.getenv("ENABLE_MCP_AGENT", "true").lower() == "true"
+# MCP agent integration - reads from geronimo.yaml model.mcp_enabled
+ENABLE_MCP = _config.model.mcp_enabled if _config else True
 
 
 # =============================================================================

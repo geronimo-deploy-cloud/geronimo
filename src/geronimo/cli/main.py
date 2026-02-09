@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from geronimo import __version__
+from geronimo.constants import MODULES
 
 # Create the main Typer app
 app = typer.Typer(
@@ -701,20 +702,7 @@ def docs_generate(
     project_root = current.parent.parent.parent.parent  # cli -> geronimo -> src -> root
 
     # All public modules to document
-    modules = [
-        "geronimo.artifacts",
-        "geronimo.batch",
-        "geronimo.cli",
-        "geronimo.cloud",
-        "geronimo.config",
-        "geronimo.data",
-        "geronimo.deploy",
-        "geronimo.features",
-        "geronimo.generators",
-        "geronimo.models",
-        "geronimo.serving",
-        "geronimo.validation",
-    ]
+    modules = MODULES
 
     output_dir = Path(output)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -776,20 +764,7 @@ def docs_serve(
     current = Path(__file__).resolve()
     project_root = current.parent.parent.parent.parent
 
-    modules = [
-        "geronimo.artifacts",
-        "geronimo.batch",
-        "geronimo.cli",
-        "geronimo.cloud",
-        "geronimo.config",
-        "geronimo.data",
-        "geronimo.deploy",
-        "geronimo.features",
-        "geronimo.generators",
-        "geronimo.models",
-        "geronimo.serving",
-        "geronimo.validation",
-    ]
+    modules = MODULES
 
     cmd = [
         sys.executable,

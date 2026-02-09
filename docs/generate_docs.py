@@ -15,28 +15,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-# All public modules to document
-MODULES = [
-    "geronimo.analyzers",
-    "geronimo.artifacts",
-    "geronimo.batch",
-    "geronimo.cli",
-    "geronimo.cloud",
-    "geronimo.config",
-    "geronimo.data",
-    "geronimo.deploy",
-    "geronimo.features",
-    "geronimo.generators",
-    "geronimo.models",
-    "geronimo.monitoring",
-    "geronimo.scanners",
-    "geronimo.serving",
-    "geronimo.validation",
-]
-
 # Project root directory
 PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+from geronimo.constants import MODULES
+
 DEFAULT_OUTPUT = PROJECT_ROOT / "docs" / "api"
+
 
 
 def generate_docs(output_dir: Path, serve: bool = False) -> int:

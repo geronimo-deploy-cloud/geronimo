@@ -156,9 +156,9 @@ def run(self):
         pass
 ```
 
-## 6. Deploy to Step Functions
+## 6. Deployment Backends
 
-Configure `geronimo.yaml`:
+### Step Functions (AWS)
 
 ```yaml
 batch:
@@ -167,19 +167,40 @@ batch:
   step_functions:
     s3_root: s3://my-bucket/metaflow
     batch_queue: ml-training-queue
-  jobs:
-    - name: daily_scoring
-      schedule: "0 6 * * *"
 ```
 
-Generate and deploy:
-
+Deploy:
 ```bash
+export METAFLOW_PROFILE=production
 geronimo generate batch
 python -m my_pipeline.flow step-functions create
 ```
 
-## 7. Schedule Types
+### Airflow (Astronomer)
+
+```yaml
+batch:
+  enabled: true
+  backend: airflow
+  airflow:
+    connection_id: astronomer_default
+    namespace: ml-workloads
+```
+
+Generates Airflow DAGs using `KubernetesPodOperator`.
+
+## 7. Configuration Reference
+
+| Field | Description |
+|-------|-------------|
+| `batch.enabled` | Enable batch generation |
+| `batch.backend` | `step-functions` or `airflow` |
+| `batch.jobs[].flow_file` | Path to flow.py |
+| `batch.jobs[].schedule` | Cron expression |
+| `batch.jobs[].cpu` | CPU units |
+| `batch.jobs[].memory` | Memory in MB |
+
+## 8. Schedule Types
 
 ```python
 Schedule.cron("0 6 * * *")      # Cron expression
@@ -187,7 +208,7 @@ Schedule.daily(hour=6)           # Daily at 6 AM
 Schedule.weekly(day=0, hour=0)   # Sunday midnight
 ```
 
-## Next Steps
+## 9. Next Steps
 
 - [Real-Time Endpoints](getting_started_realtime.md) — API serving
 - [Monitoring](monitoring.md) — Drift detection

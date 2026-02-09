@@ -25,21 +25,6 @@ For projects needing both:
 geronimo init --name my-model --template both
 ```
 
-## Import Existing Project
-
-Already have ML code?
-
-```bash
-cd /path/to/existing-project
-geronimo import .
-```
-
-Generates:
-- `geronimo.yaml` — Deployment config
-- `src/{project}/sdk/` — SDK wrappers with TODO tags
-- `src/{project}/app.py` — Thin FastAPI wrapper
-
-See `src/{project}/sdk/IMPORT_SUMMARY.md` for detected patterns and action items.
 
 ## Documentation
 

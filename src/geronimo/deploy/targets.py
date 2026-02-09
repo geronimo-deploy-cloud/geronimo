@@ -30,7 +30,7 @@ def get_available_targets() -> list[str]:
     Returns:
         List of target names (aws, gcp, azure)
     """
-    return ["aws", "gcp", "azure", "cloud"]
+    return ["aws", "gcp", "azure", "gdc"]
 
 
 def deploy(config: DeploymentConfig, component: str | None = None) -> dict:
@@ -60,7 +60,7 @@ def deploy(config: DeploymentConfig, component: str | None = None) -> dict:
     elif config.target == "azure":
         from geronimo.deploy.providers.azure import deploy_azure
         return deploy_azure(config, component)
-    elif config.target == "cloud":
+    elif config.target == "gdc":
         from geronimo.deploy_cloud import GeronimoCloudTarget
         target = GeronimoCloudTarget(config)
         return target.deploy(component)
@@ -80,7 +80,7 @@ def destroy(config: DeploymentConfig) -> dict:
     Raises:
         PulumiNotInstalledError: If Pulumi is not installed (unless target is cloud)
     """
-    if config.target == "cloud":
+    if config.target == "gdc":
         from geronimo.deploy_cloud import GeronimoCloudTarget
         target = GeronimoCloudTarget(config)
         return target.destroy()

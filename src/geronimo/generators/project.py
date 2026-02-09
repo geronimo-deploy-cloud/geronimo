@@ -254,6 +254,8 @@ class ProjectGenerator(BaseGenerator):
             self.engine.render_to_file("sdk/endpoint.py.jinja2", context, sdk_dir / "endpoint.py")
             self.write_file(sdk_dir / "monitoring_config.py", self._generate_sdk_monitoring_config(context))
             self.write_file(pkg_dir / "app.py", self._generate_app_wrapper(context))
+            # Generate MCP agent package for AI integration
+            self._generate_agent_package(context)
         
         if self.template in ("batch", "both"):
             self.engine.render_to_file("sdk/pipeline.py.jinja2", context, sdk_dir / "pipeline.py")
@@ -1006,8 +1008,10 @@ This app integrates:
 - SDK endpoint for predictions
 - Monitoring middleware for latency/error tracking
 - Metrics collector for CloudWatch/custom backends
+- MCP server for AI agent integration (at /mcp)
 """
 
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -1027,6 +1031,9 @@ PROJECT_NAME = "{context["project_name"]}"
 
 # Metrics backend: "cloudwatch", "local", or custom
 METRICS_BACKEND = "local"  # TODO: Change to "cloudwatch" for production
+
+# MCP agent integration (set ENABLE_MCP_AGENT=false to disable)
+ENABLE_MCP = os.getenv("ENABLE_MCP_AGENT", "true").lower() == "true"
 
 
 # =============================================================================
@@ -1083,6 +1090,18 @@ app.add_middleware(MonitoringMiddleware, collector=metrics)
 
 
 # =============================================================================
+# MCP Agent Integration (AI agents can call your model via /mcp)
+# =============================================================================
+
+if ENABLE_MCP:
+    try:
+        from {context["project_name_snake"]}.agent import mcp
+        app.mount("/mcp", mcp.streamable_http_app())
+    except ImportError:
+        pass  # MCP dependencies not installed
+
+
+# =============================================================================
 # Request/Response Models
 # =============================================================================
 
@@ -1103,7 +1122,7 @@ class PredictResponse(BaseModel):
 @app.get("/health")
 def health():
     \"\"\"Health check endpoint.\"\"\"
-    return {{"status": "ok"}}
+    return {{"status": "ok", "mcp_enabled": ENABLE_MCP}}
 
 
 @app.get("/metrics")
@@ -1922,22 +1941,19 @@ def test_predict(client: TestClient):
 '''
 
     def _generate_agent_package(self, context: dict) -> None:
-        """Generate agent package (MCP)."""
+        """Generate MCP agent file for AI agent integration.
+        
+        Creates agent.py at the package level (alongside app.py).
+        """
         src = self.project_dir / "src"
-        pkg_dir = src / context["project_name_snake"] / "agent"
-        pkg_dir.mkdir(exist_ok=True)
-        self.write_file(pkg_dir / "__init__.py", '"""Agent package."""\n')
+        pkg_dir = src / context["project_name_snake"]
 
-        # Read template
-        template_path = Path(geronimo.__file__).parent / "templates" / "agent" / "server.py"
-        if template_path.exists():
-            content = template_path.read_text()
-            # Fix imports
-            content = content.replace(
-                "from geronimo.", 
-                f"from {context['project_name_snake']}."
-            )
-            self.write_file(pkg_dir / "server.py", content)
+        # Generate agent.py at package level (like app.py)
+        self.engine.render_to_file(
+            "sdk/agent_server.py.jinja2", 
+            context, 
+            pkg_dir / "agent.py"
+        )
 
     def _generate_project_files(self) -> None:
         """Generate project-level configuration files."""

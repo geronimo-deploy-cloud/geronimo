@@ -3,7 +3,7 @@
 import typer
 from rich.panel import Panel
 
-from geronimo.cloud.client import GeronimoCloudClient
+from geronimo.deploy_cloud.client import GeronimoCloudClient
 from geronimo.cli.utils import console, success, warning
 
 auth_app = typer.Typer(

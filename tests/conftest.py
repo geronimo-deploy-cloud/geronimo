@@ -85,29 +85,15 @@ model:
 def mock_http_client() -> MagicMock:
     """Mock httpx.Client for API testing.
     
+    Delegates to deploy_testing_fixtures for implementation consistency.
+    
     Example:
         def test_api_call(mock_http_client):
             mock_http_client.post.return_value.json.return_value = {"id": "123"}
             # ... test logic ...
     """
-    client = MagicMock()
-    
-    # Configure default response behavior
-    response = MagicMock()
-    response.status_code = 200
-    response.json.return_value = {}
-    response.raise_for_status = MagicMock()
-    
-    client.get.return_value = response
-    client.post.return_value = response
-    client.put.return_value = response
-    client.delete.return_value = response
-    
-    # Make it work as context manager
-    client.__enter__ = MagicMock(return_value=client)
-    client.__exit__ = MagicMock(return_value=False)
-    
-    return client
+    from geronimo.deploy_testing_fixtures import create_mock_http_client
+    return create_mock_http_client()
 
 
 @pytest.fixture
@@ -176,22 +162,14 @@ def mock_cloud_artifact_backend() -> MagicMock:
 def mock_cloud_client() -> MagicMock:
     """Mock GeronimoCloudClient for testing.
     
+    Delegates to deploy_testing_fixtures for implementation consistency.
+    
     Example:
         def test_deploy(mock_cloud_client):
             mock_cloud_client.deploy_project.return_value = {"id": "deploy-123"}
     """
-    client = MagicMock()
-    client.api_url = "https://api.test.geronimo.cloud"
-    client.token = "test-token"
-    client.headers = {"Authorization": "Bearer test-token"}
-    
-    # Default return values
-    client.login.return_value = {"email": "test@example.com", "org": "test-org"}
-    client.deploy_project.return_value = {"id": "deploy-123", "status": "pending"}
-    client.get_deployment_status.return_value = {"status": "running"}
-    client.sync_keys.return_value = {"synced": 1, "skipped": 0}
-    
-    return client
+    from geronimo.deploy_testing_fixtures import create_mock_cloud_client
+    return create_mock_cloud_client()
 
 
 # =============================================================================

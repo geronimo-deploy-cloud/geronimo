@@ -29,7 +29,7 @@ class TestGeronimoCloudArtifactBackend:
             client=mock_client
         )
 
-    @patch("geronimo.cloud.http_utils.httpx.Client")
+    @patch("geronimo.deploy_cloud.http_utils.httpx.Client")
     def test_save_flow(self, mock_httpx, backend):
         """Test save flow: cloud-save -> upload -> confirm."""
         # Setup mocks
@@ -71,7 +71,7 @@ class TestGeronimoCloudArtifactBackend:
             json={"size_bytes": ANY}
         )
 
-    @patch("geronimo.cloud.http_utils.httpx.Client")
+    @patch("geronimo.deploy_cloud.http_utils.httpx.Client")
     def test_load_flow(self, mock_httpx, backend):
         """Test load flow: cloud-load -> download -> deserialize."""
         mock_http = mock_httpx.return_value.__enter__.return_value
@@ -109,7 +109,7 @@ class TestGeronimoCloudArtifactBackend:
             }
         )
 
-    @patch("geronimo.cloud.http_utils.httpx.Client")
+    @patch("geronimo.deploy_cloud.http_utils.httpx.Client")
     def test_list(self, mock_httpx, backend):
         """Test list artifacts."""
         mock_http = mock_httpx.return_value.__enter__.return_value
@@ -126,7 +126,7 @@ class TestGeronimoCloudArtifactBackend:
             params={"project": "test-project", "version": "1.0.0"}
         )
 
-    @patch("geronimo.cloud.http_utils.httpx.Client")
+    @patch("geronimo.deploy_cloud.http_utils.httpx.Client")
     def test_delete(self, mock_httpx, backend):
         """Test delete artifact."""
         mock_http = mock_httpx.return_value.__enter__.return_value

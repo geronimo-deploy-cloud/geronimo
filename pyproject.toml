@@ -52,11 +52,15 @@ pulumi = [
 cloud = [
     "httpx>=0.25.0",
 ]
+testing = [
+    "scikit-learn>=1.3.0",
+]
 all = [
     "geronimo[mlflow]",
     "geronimo[databases]",
     "geronimo[pulumi]",
 ]
+
 
 [project.scripts]
 geronimo = "geronimo.cli.main:app"

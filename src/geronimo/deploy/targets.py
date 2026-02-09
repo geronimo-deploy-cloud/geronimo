@@ -61,7 +61,7 @@ def deploy(config: DeploymentConfig, component: str | None = None) -> dict:
         from geronimo.deploy.providers.azure import deploy_azure
         return deploy_azure(config, component)
     elif config.target == "cloud":
-        from geronimo.cloud import GeronimoCloudTarget
+        from geronimo.deploy_cloud import GeronimoCloudTarget
         target = GeronimoCloudTarget(config)
         return target.deploy(component)
     else:
@@ -81,7 +81,7 @@ def destroy(config: DeploymentConfig) -> dict:
         PulumiNotInstalledError: If Pulumi is not installed (unless target is cloud)
     """
     if config.target == "cloud":
-        from geronimo.cloud import GeronimoCloudTarget
+        from geronimo.deploy_cloud import GeronimoCloudTarget
         target = GeronimoCloudTarget(config)
         return target.destroy()
 

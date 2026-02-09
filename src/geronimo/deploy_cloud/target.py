@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 from geronimo.deploy.config import DeploymentConfig
-from geronimo.cloud.client import GeronimoCloudClient
+from geronimo.deploy_cloud.client import GeronimoCloudClient
 
 
 class GeronimoCloudTarget:

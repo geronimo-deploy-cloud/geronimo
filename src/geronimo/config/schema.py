@@ -61,6 +61,10 @@ class ModelConfig(BaseModel):
     artifact_path: Optional[str] = Field(
         default="models/model.joblib", description="Path to model artifact"
     )
+    mcp_enabled: bool = Field(
+        default=True,
+        description="Enable MCP server for AI agent integration (realtime only)",
+    )
 
 
 class RuntimeConfig(BaseModel):

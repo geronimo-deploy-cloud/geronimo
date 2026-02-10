@@ -41,19 +41,16 @@ The generated documentation follows this structure:
 docs/api/
 ├── index.html              # Main index page
 ├── geronimo/
-│   ├── analyzers.html      # Analyzer module docs
 │   ├── artifacts.html      # Artifact store docs
 │   ├── batch.html          # BatchPipeline docs
 │   ├── cli.html            # CLI command docs
-│   ├── cloud.html          # Cloud SDK docs
 │   ├── config.html         # Configuration docs
 │   ├── data.html           # Data source docs
 │   ├── deploy.html         # Deployment target docs
+│   ├── deploy_cloud.html   # Cloud SDK docs
 │   ├── features.html       # Feature engineering docs
 │   ├── generators.html     # Code generator docs
 │   ├── models.html         # Model base class docs
-│   ├── monitoring.html     # Monitoring/drift docs
-│   ├── scanners.html       # Project scanner docs
 │   ├── serving.html        # Endpoint serving docs
 │   └── validation.html     # Validation engine docs
 └── search.js               # Client-side search
@@ -140,19 +137,16 @@ The following public modules are documented:
 
 | Module | Description |
 |--------|-------------|
-| `geronimo.analyzers` | Automatic model analysis and SDK integration |
 | `geronimo.artifacts` | MLflow-backed artifact storage |
 | `geronimo.batch` | BatchPipeline for scheduled jobs |
 | `geronimo.cli` | Command-line interface |
-| `geronimo.cloud` | Geronimo Cloud SDK |
 | `geronimo.config` | YAML configuration loading |
 | `geronimo.data` | Data sources and connections |
 | `geronimo.deploy` | Deployment targets and protocols |
+| `geronimo.deploy_cloud` | Geronimo Cloud SDK |
 | `geronimo.features` | Feature engineering |
 | `geronimo.generators` | Terraform, Docker, pipeline generators |
 | `geronimo.models` | Model base class |
-| `geronimo.monitoring` | Drift detection and monitoring |
-| `geronimo.scanners` | Project analysis |
 | `geronimo.serving` | Endpoint serving |
 | `geronimo.validation` | Configuration validation |
 

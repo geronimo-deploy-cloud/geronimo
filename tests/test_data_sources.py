@@ -1,8 +1,8 @@
-"""Tests for geronimo.data module."""
+"""Tests for geronimo.data_sources module."""
 
 import pytest
 
-from geronimo.data import Query
+from geronimo.data_sources import Query
 
 
 class TestQuery:
@@ -40,7 +40,7 @@ class TestDataSource:
 
     def test_file_data_source(self, temp_dir):
         """Test DataSource from CSV file."""
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         import pandas as pd
         
         # Create test CSV
@@ -64,7 +64,7 @@ class TestDataSource:
         except ImportError:
             pytest.skip("pyarrow not installed")
 
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         import pandas as pd
         
         # Create test Parquet
@@ -82,7 +82,7 @@ class TestDataSource:
 
     def test_database_source_requires_query(self):
         """Test that database sources require a query."""
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         
         with pytest.raises(ValueError, match="require a query"):
             DataSource(
@@ -92,7 +92,7 @@ class TestDataSource:
 
     def test_file_source_requires_path(self):
         """Test that file sources require a path."""
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         
         with pytest.raises(ValueError, match="require a path"):
             DataSource(
@@ -102,7 +102,7 @@ class TestDataSource:
 
     def test_function_data_source(self):
         """Test DataSource with function handle."""
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         import pandas as pd
         
         def load_data():
@@ -120,7 +120,7 @@ class TestDataSource:
 
     def test_function_data_source_with_params(self):
         """Test function DataSource passes params to handle."""
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         import pandas as pd
         
         def load_data(limit=10):
@@ -137,7 +137,7 @@ class TestDataSource:
 
     def test_function_source_requires_handle(self):
         """Test that function sources require a handle."""
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         
         with pytest.raises(ValueError, match="require a handle"):
             DataSource(
@@ -147,8 +147,8 @@ class TestDataSource:
 
     def test_function_source_validates_return_type(self):
         """Test that function source validates DataFrame return type at runtime."""
-        from geronimo.data import DataSource
-        from geronimo.data.source import DataSourceError
+        from geronimo.data_sources import DataSource
+        from geronimo.data_sources.source import DataSourceError
         
         def bad_handle():
             return {"x": [1, 2, 3]}  # Returns dict, not DataFrame
@@ -164,7 +164,7 @@ class TestDataSource:
 
     def test_function_source_handle_must_be_callable(self):
         """Test that handle must be callable."""
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         
         with pytest.raises(ValueError, match="must be callable"):
             DataSource(

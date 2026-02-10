@@ -175,7 +175,7 @@ class ProjectFeatures(FeatureSet):
     # Data sources file
     (sdk_dir / "data_sources.py").write_text('''"""Data source definitions."""
 
-from geronimo.data import DataSource, Query
+from geronimo.data_sources import DataSource, Query
 
 # Example query-based source:
 # training_data = DataSource(

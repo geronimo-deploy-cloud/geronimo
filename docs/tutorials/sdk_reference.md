@@ -21,12 +21,12 @@ my-project/
 
 ---
 
-## geronimo.data
+## geronimo.data_sources
 
 ### DataSource
 
 ```python
-from geronimo.data import DataSource, Query
+from geronimo.data_sources import DataSource, Query
 
 # File source
 training_data = DataSource(
@@ -50,7 +50,7 @@ df = source.load(start_date="2024-01-01")
 ### Query
 
 ```python
-from geronimo.data import Query
+from geronimo.data_sources import Query
 
 # From file
 query = Query.from_file("queries/features.sql")

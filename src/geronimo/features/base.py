@@ -8,7 +8,7 @@ from geronimo.features.feature import Feature
 
 if TYPE_CHECKING:
     from geronimo.artifacts import ArtifactStore
-    from geronimo.data import DataSource
+    from geronimo.data_sources import DataSource
 
 
 class FeatureSet:

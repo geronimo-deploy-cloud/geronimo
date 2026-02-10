@@ -492,7 +492,7 @@ This module is imported by model.py and pipeline.py to load training/scoring dat
 """
 
 import sys
-from geronimo.data import DataSource, JoinSpec, Query, collect_data_sources
+from geronimo.data_sources import DataSource, JoinSpec, Query, collect_data_sources
 
 
 # =============================================================================

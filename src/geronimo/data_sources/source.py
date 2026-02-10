@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 
 import pandas as pd
 
-from geronimo.data.query import Query
-from geronimo.data.connection import get_connection, DatabaseConnection
+from geronimo.data_sources.query import Query
+from geronimo.data_sources.connection import get_connection, DatabaseConnection
 
 
 class SourceType(str, Enum):
@@ -39,7 +39,7 @@ class DataSource:
 
     Example (database):
         ```python
-        from geronimo.data import DataSource, Query
+        from geronimo.data_sources import DataSource, Query
 
         training_data = DataSource(
             name="customer_features",
@@ -51,7 +51,7 @@ class DataSource:
 
     Example (function):
         ```python
-        from geronimo.data import DataSource
+        from geronimo.data_sources import DataSource
         from sklearn.datasets import load_iris
         import pandas as pd
         
@@ -220,7 +220,7 @@ class JoinSpec:
     
     Example:
         ```python
-        from geronimo.data import DataSource, JoinSpec
+        from geronimo.data_sources import DataSource, JoinSpec
         
         # Primary training source
         training_customers = DataSource(
@@ -260,7 +260,7 @@ def collect_data_sources(module, prefix: str) -> list[DataSource]:
     Example:
         ```python
         # In data_sources.py
-        from geronimo.data import DataSource, collect_data_sources
+        from geronimo.data_sources import DataSource, collect_data_sources
         import sys
         
         training_customers = DataSource(...)

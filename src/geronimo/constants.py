@@ -6,7 +6,7 @@ MODULES = [
     "geronimo.batch",
     "geronimo.cli",
     "geronimo.config",
-    "geronimo.data",
+    "geronimo.data_sources",
     "geronimo.deploy",
     "geronimo.deploy_cloud",
     "geronimo.features",

@@ -45,7 +45,7 @@ docs/api/
 │   ├── batch.html          # BatchPipeline docs
 │   ├── cli.html            # CLI command docs
 │   ├── config.html         # Configuration docs
-│   ├── data.html           # Data source docs
+│   ├── data_sources.html   # Data sources and connections docs
 │   ├── deploy.html         # Deployment target docs
 │   ├── deploy_cloud.html   # Cloud SDK docs
 │   ├── features.html       # Feature engineering docs
@@ -141,7 +141,7 @@ The following public modules are documented:
 | `geronimo.batch` | BatchPipeline for scheduled jobs |
 | `geronimo.cli` | Command-line interface |
 | `geronimo.config` | YAML configuration loading |
-| `geronimo.data` | Data sources and connections |
+| `geronimo.data_sources` | Data sources and connections |
 | `geronimo.deploy` | Deployment targets and protocols |
 | `geronimo.deploy_cloud` | Geronimo Cloud SDK |
 | `geronimo.features` | Feature engineering |

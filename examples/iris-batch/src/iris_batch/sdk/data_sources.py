@@ -3,7 +3,7 @@
 import pandas as pd
 from sklearn.datasets import load_iris
 
-from geronimo.data import DataSource
+from geronimo.data_sources import DataSource
 
 
 def _load_iris_dataframe() -> pd.DataFrame:

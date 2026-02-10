@@ -1,10 +1,10 @@
-"""Tests for geronimo.data.connection module."""
+"""Tests for geronimo.data_sources.connection module."""
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 
-from geronimo.data.connection import (
+from geronimo.data_sources.connection import (
     DatabaseConnection,
     BaseDatabaseConnection,
     SnowflakeConnection,

@@ -3,9 +3,9 @@
 Provides abstractions for data sources, queries, and database connections.
 """
 
-from geronimo.data.source import DataSource, JoinSpec, collect_data_sources
-from geronimo.data.query import Query
-from geronimo.data.connection import (
+from geronimo.data_sources.source import DataSource, JoinSpec, collect_data_sources
+from geronimo.data_sources.query import Query
+from geronimo.data_sources.connection import (
     DatabaseConnection,
     BaseDatabaseConnection,
     SnowflakeConnection,

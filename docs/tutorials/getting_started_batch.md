@@ -35,7 +35,7 @@ my-pipeline/
 ### Define Data Source (`sdk/data_sources.py`)
 
 ```python
-from geronimo.data import DataSource, Query
+from geronimo.data_sources import DataSource, Query
 
 # Training data source
 training_data = DataSource(

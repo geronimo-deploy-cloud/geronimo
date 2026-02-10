@@ -51,7 +51,7 @@ class ArtifactStore:
         self,
         project: str,
         version: str,
-        backend: Optional[Union[Literal["local", "s3", "gdc"], ArtifactBackend]] = None,
+        backend: Optional[Union[Literal["local", "s3", "gdc", "mlflow"], ArtifactBackend]] = None,
         base_path: Optional[str] = None,
         s3_bucket: Optional[str] = None,
     ):
@@ -122,6 +122,12 @@ class ArtifactStore:
                 project=self.project,
                 version=self.version,
             )
+        elif self.backend == "mlflow":
+            from geronimo.artifacts.mlflow_backend import MLFlowArtifactBackend
+            return MLFlowArtifactBackend(
+                project=self.project,
+                version=self.version,
+            )
         else:
             raise ValueError(f"Unknown backend type: {self.backend}")
 
@@ -130,7 +136,7 @@ class ArtifactStore:
         cls,
         project: str,
         version: str,
-        backend: Optional[Literal["local", "s3", "gdc"]] = None,
+        backend: Optional[Literal["local", "s3", "gdc", "mlflow"]] = None,
         **kwargs,
     ) -> "ArtifactStore":
         """Load existing artifact store.

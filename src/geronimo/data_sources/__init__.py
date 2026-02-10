@@ -1,6 +1,21 @@
 """Geronimo Data Layer.
 
-Provides abstractions for data sources, queries, and database connections.
+The data_sources module provides a unified abstraction for connecting to, querying,
+and ingesting data from various upstream sources. It decouples the ML modeling logic
+from the underlying data infrastructure.
+
+Key components:
+- DataSource: Represents a table or view in a database.
+- Query: A composable query object for retrieving data.
+- DatabaseConnection: Protocol for database adapters.
+
+Supported connections:
+- Snowflake
+- PostgreSQL
+- SQL Server
+- Google BigQuery (via generic interface)
+
+This layer handles connection pooling, query generation, and data type mapping.
 """
 
 from geronimo.data_sources.source import DataSource, JoinSpec, collect_data_sources

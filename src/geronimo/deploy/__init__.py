@@ -1,7 +1,16 @@
 """Geronimo Deploy Module.
 
-Provides infrastructure deployment using Pulumi Automation API.
-Pulumi is an optional dependency - install with: pip install geronimo[pulumi]
+This module provides the necessary tooling to deploy infrastructure and applications
+to cloud providers using Infrastructure as Code (IaC). It primarily integrates with
+Pulumi's Automation API to programmatically manage cloud resources.
+
+It allows you to:
+- Define infrastructure resources (S3 buckets, EC2 instances, SageMaker endpoints)
+- Deploy entire stacks with a single Python command
+- Manage deployment state and targeted environments (dev/stage/prod)
+- Destroy resources when no longer needed
+
+Note: Pulumi is an optional dependency. Install it with `pip install geronimo[pulumi]`.
 """
 
 from geronimo.deploy.config import DeploymentConfig

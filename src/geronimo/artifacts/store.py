@@ -60,7 +60,7 @@ class ArtifactStore:
         Args:
             project: Project name.
             version: Version string (e.g., "1.2.0").
-            backend: Storage backend ("local", "s3", "gdc") or custom ArtifactBackend instance.
+            backend: Storage backend ("local", "s3", "mlflow", "gdc") or custom ArtifactBackend instance.
                      Defaults to value from ~/.geronimo/config.yaml.
             base_path: Base path for local storage.
                        Defaults to ~/.geronimo/artifacts.

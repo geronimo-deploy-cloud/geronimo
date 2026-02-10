@@ -1,6 +1,18 @@
 """Geronimo Artifact Store.
 
-Provides versioned storage for ML artifacts (models, encoders, etc.).
+The artifacts module provides a unified interface for storing and retrieving
+machine learning artifacts such as trained models, encoders, and other binary blobs.
+It supports versioned storage to ensure reproducibility and traceability.
+
+Key components:
+- ArtifactStore: The main entry point for saving and loading artifacts.
+- ArtifactBackend: Protocol that defines the storage backend interface.
+
+Supported backends:
+- LocalArtifactBackend: Stores artifacts on the local filesystem.
+- S3ArtifactBackend: Stores artifacts in an AWS S3 bucket.
+- GeronimoDeployCloudArtifactBackend: Managed artifact storage via Geronimo Deploy Cloud.
+- MLflowArtifactStore: Optional integration for tracking artifacts with MLflow.
 """
 
 from geronimo.artifacts.store import ArtifactStore

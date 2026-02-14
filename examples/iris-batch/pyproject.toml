@@ -1,22 +1,27 @@
 [project]
 name = "iris-batch"
 version = "1.0.0"
-description = "Batch scoring pipeline for Iris classification"
+description = "ML model serving API"
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "geronimo",
-    "metaflow>=2.10.0",
+    "pydantic>=2.5.0",
+    "numpy>=1.24.0",
     "pandas>=2.0.0",
+    "boto3>=1.34.0",
+    "metaflow>=2.10.0",
     "scikit-learn>=1.3.0",
-    "pyarrow>=14.0.0",
+    "joblib>=1.3.0",
 ]
 
-[project.scripts]
-iris-batch = "flows.scoring_flow:IrisScoringFlow"
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "httpx>=0.25.0",
+    "pytest-cov>=4.1.0",
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.uv.sources]
-geronimo = { path = "../..", editable = true }

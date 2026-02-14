@@ -1,10 +1,10 @@
 """Pipeline definition - batch processing logic."""
 
-from geronimo.batch import Pipeline
-from .model import ProjectModel
+from geronimo.batch import BatchPipeline
+from .model import {{ project_name | pascal_case }}Model
 
 
-class BatchPipeline(Pipeline):
+class {{ project_name | pascal_case }}BatchPipeline(BatchPipeline):
     """Batch scoring pipeline.
     
     This is a working demo pipeline. Replace run() with your actual 
@@ -14,7 +14,7 @@ class BatchPipeline(Pipeline):
         uv run python -m {{ project_name | snake_case }}.train
     """
     
-    model_class = ProjectModel
+    model_class = {{ project_name | pascal_case }}Model
 
     def initialize(self):
         """Initialize pipeline.

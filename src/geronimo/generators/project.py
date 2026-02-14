@@ -214,8 +214,9 @@ class ProjectGenerator(BaseGenerator):
         # Generate source code
         self._generate_source_code()
 
-        # Generate monitoring code (only for realtime/both)
-        if self.template in ("realtime", "both"):
+        # Generate monitoring code
+        # Monitoring is needed for both realtime (metrics) and batch (drift detection)
+        if self.template in ("realtime", "batch", "both"):
             self._generate_monitoring()
 
         # Generate project files
@@ -1554,28 +1555,16 @@ models/*.h5
     def _generate_training_script(self, context: dict) -> None:
         """Generate training script template."""
         pkg_dir = self.project_dir / "src" / context["project_name_snake"]
+        project_name_pascal = self._to_pascal_case(context["project_name"])
 
         train_script = f'''"""Training script for {context["project_name"]}.
-
-This script demonstrates the full training workflow:
-1. Load data from SDK data_sources
-2. Initialize model with SDK features
-3. Fit transformers and train model
-4. Save artifacts to ArtifactStore
 
 Usage:
     uv run python -m {context["project_name_snake"]}.train
 """
 
-from pathlib import Path
-import pandas as pd
-
 from geronimo.artifacts import ArtifactStore
-from geronimo.models import HyperParams
-
-# Import from your SDK
-from {context["project_name_snake"]}.sdk.model import ProjectModel
-from {context["project_name_snake"]}.sdk.data_sources import training_data
+from {context["project_name_snake"]}.sdk.model import {project_name_pascal}Model
 
 
 def main():
@@ -1584,68 +1573,27 @@ def main():
     print("Model Training")
     print("=" * 50)
 
-    # =========================================================================
-    # 1. Load data from configured data source
-    # =========================================================================
-    print("\\n1. Loading data...")
+    # 1. Initialize and train model
+    # Data loading and feature engineering are handled by the model class
+    print("\\n1. Training model...")
+    model = {project_name_pascal}Model()
     
-    # Option A: Load from SDK data_sources (recommended)
-    # This uses the DataSource defined in sdk/data_sources.py
-    # df = training_data.load()
-    
-    # Option B: Direct file load (for development/testing)
-    # df = pd.read_csv("data/train.csv")
-    
-    # TODO: Uncomment one of the options above
-    raise NotImplementedError(
-        "Configure your data source in sdk/data_sources.py, then uncomment:\\n"
-        "  df = training_data.load()"
-    )
+    # Train (logic encapsulated in model.train())
+    metrics = model.train()
+    print(f"   Training metrics: {{metrics}}")
 
-    # =========================================================================
-    # 2. Prepare features and target
-    # =========================================================================
-    print("\\n2. Preparing data...")
-    
-    # TODO: Update with your target column name
-    # y = df.pop("target")
-    raise NotImplementedError("Set your target column: y = df.pop('your_target_column')")
-
-    # =========================================================================
-    # 3. Initialize and train model
-    # =========================================================================
-    print("\\n3. Training model...")
-    model = ProjectModel()
-    
-    # Fit feature transformers (from sdk/features.py)
-    print("   Fitting feature transformers...")
-    model.features.fit(df)
-    X = model.features.transform(df)
-    
-    # Train with hyperparameters
-    # TODO: Customize your hyperparameters
-    params = HyperParams(
-        n_estimators=100,
-        max_depth=5,
-    )
-    model.train(X, y, params)
-
-    # =========================================================================
-    # 4. Save model artifacts
-    # =========================================================================
-    print("\\n4. Saving artifacts...")
+    # 2. Save model artifacts
+    print("\\n2. Saving artifacts...")
     
     # ArtifactStore uses your global config from ~/.geronimo/config.yaml
-    # Run `geronimo config show` to see current settings
-    # Run `geronimo config init` to change backend (local, s3, or gdc)
     store = ArtifactStore(
         project="{context["project_name"]}",
         version="1.0.0",
-        # backend defaults to your global config (~/.geronimo/config.yaml)
-        # Override here if needed: backend="local", backend="s3", backend="gdc"
     )
-    model.save(store)
-    print(f"   Saved artifacts (backend: {{store.backend}})")
+    
+    paths = model.save(store)
+    print(f"   Saved artifacts to {{len(paths)}} locations")
+    print(f"   Backend: {{store.backend}}")
 
     print("\\n" + "=" * 50)
     print("Training complete!")

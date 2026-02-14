@@ -1,1 +1,1 @@
-"""ML serving package."""
+"""ML package for iris-batch."""

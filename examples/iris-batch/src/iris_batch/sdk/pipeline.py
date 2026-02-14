@@ -1,78 +1,66 @@
-"""Pipeline definition for Iris batch scoring."""
+"""Pipeline definition - batch processing logic."""
 
-from typing import Optional
-import pandas as pd
-from pathlib import Path
-
-from geronimo.batch.pipeline import BatchPipeline
+from geronimo.batch import BatchPipeline
 from geronimo.batch.schedule import Schedule
-from geronimo.artifacts import ArtifactStore
-from .model import IrisModel
+from .model import IrisBatchModel
+
+# For this example, we'll just re-score the training data as a demo
 from .data_sources import training_data
 
-
 class ScoringPipeline(BatchPipeline):
-    """Batch pipeline for scoring new data.
+    """Batch scoring pipeline.
     
-    Loads the pre-trained model from ArtifactStore and runs predictions
-    on the input dataset.
+    This is a working demo pipeline. Replace run() with your actual 
+    implementation once you have a trained model.
+    
+    To train a model:
+        uv run python -m iris_batch.train
     """
     
+    # Point to the model class - this just helps with doc gen
+    model_class = IrisBatchModel
     # Schedule: Run daily at 6:00 AM
     schedule = Schedule.daily(hour=6)
-    
-    def initialize(self, project: str = "iris-batch", version: str = "1.0.0") -> None:
-        """Initialize pipeline by loading model from ArtifactStore."""
-        self.project = project
-        self.version = version
-        
-        # Load artifacts
-        print(f"Loading model artifacts for {project}@{version}...")
-        self._store = ArtifactStore.load(project=project, version=version)
-        self.model = IrisModel()
-        self.model.load(self._store)
-        self._is_initialized = True
 
-    def run(self) -> None:
-        """Execute the batch scoring job.
-        
-        1. Load data (in production this would be new data, here reuse training)
-        2. Run predictions
-        3. Save results
+    def initialize(self):
+        """Initialize pipeline.
+
+        Parent class will load the model from ArtifactStore.
         """
-        if not hasattr(self, "_is_initialized") or not self._is_initialized:
-            self.initialize()
-            
+        super().initialize()
+
+    def execute(self):
+        """Execute the pipeline.
+
+        Parent class just calls run() by default.
+        """
+        return super().execute()
+
+    def run(self):
+        """Execute batch processing.
+        
+        Demo mode implementation - replace with your actual logic.
+        
+        Returns:
+            Dict with execution results
+        """
         print("Starting batch scoring job...")
         
         # 1. Load data to score
-        # For this example, we'll re-score the training data as a demo
         print("Loading data...")
         df = training_data.load()
+
+        # 2. Transform data using fitted feature transformers from training
+        X = self.model.features.transform(df)
         
-        # 2. Run predictions
-        print(f"Scoring {len(df)} records...")
-        probabilities = self.model.predict_proba(df)
-        predictions = self.model.predict(df)
+        # 3. Run predictions
+        print(f"Scoring {len(X)} records...")
+        probabilities = self.model.predict_proba(X)
+        predictions = self.model.predict(X)
         
-        # 3. Format results
+        # 4. Format results
         results = df.copy()
         results["predicted_species_idx"] = predictions
-        results["predicted_species"] = [IrisModel.SPECIES[p] for p in predictions]
         results["max_probability"] = probabilities.max(axis=1)
         
-        # 4. Save results (to CSV for demo)
-        output_path = Path("iris_predictions.csv")
-        results.to_csv(output_path, index=False)
-        print(f"✅ Scoring complete. Results saved to {output_path}")
-        print(results[["species_name", "predicted_species", "max_probability"]].head())
-
-
-# Singleton
-_pipeline: Optional[ScoringPipeline] = None
-
-def get_pipeline() -> ScoringPipeline:
-    global _pipeline
-    if _pipeline is None:
-        _pipeline = ScoringPipeline()
-    return _pipeline
+        return results

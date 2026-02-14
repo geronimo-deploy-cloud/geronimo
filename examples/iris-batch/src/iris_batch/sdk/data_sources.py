@@ -1,10 +1,24 @@
-"""Data source definitions for Iris dataset."""
+"""Data source definitions for iris-batch.
 
-import pandas as pd
-from sklearn.datasets import load_iris
+NAMING CONVENTIONS:
+- training_* : DataSources used for model training (e.g., training_customers, training_transactions)
+- production_* : DataSources used for production inference/batch scoring
 
-from geronimo.data_sources import DataSource
+JOIN BEHAVIOR:
+- The FIRST DataSource in each group is the primary source
+- Subsequent DataSources are joined to the primary using their join_spec
+- All DataSources in a group should share a common primary key
 
+This module is imported by model.py and pipeline.py to load training/scoring data.
+"""
+
+import sys
+from geronimo.data_sources import DataSource, JoinSpec, Query, collect_data_sources
+
+
+# =============================================================================
+# Training Data Sources
+# =============================================================================
 
 def _load_iris_dataframe() -> pd.DataFrame:
     """Load Iris dataset from sklearn."""
@@ -28,3 +42,14 @@ training_data = DataSource(
     source="function",
     handle=_load_iris_dataframe,
 )
+
+# =============================================================================
+# Production Data Sources
+# =============================================================================
+
+# =============================================================================
+# Auto-collect sources
+# =============================================================================
+
+# Automatically collect training and production sources from module
+training_sources, production_sources = collect_data_sources(sys.modules[__name__])

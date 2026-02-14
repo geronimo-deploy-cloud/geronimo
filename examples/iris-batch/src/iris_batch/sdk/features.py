@@ -1,18 +1,27 @@
-"""Feature definitions for Iris classification."""
+"""Feature definitions for iris-batch.
 
+DEVELOPMENT WORKFLOW:
+1. Review training and production data sources for column consistency
+2. Perform exploratory data analysis (EDA) to identify:
+   - Missing values → consider imputation strategies
+   - Outliers → consider clipping or winsorization  
+   - Skewed distributions → consider log/power transforms
+   - Categorical cardinality → consider encoding strategies
+3. Define Features with appropriate transformers
+
+Each Feature describes a column with its type, transformer, and encoder.
+The FeatureSet handles fit_transform (training) and transform (inference).
+"""
+
+from geronimo.features import FeatureSet, Feature
 from sklearn.preprocessing import StandardScaler
-from geronimo.features import Feature, FeatureSet
 
 
-class IrisFeatures(FeatureSet):
-    """Declarative feature definition for Iris dataset.
+class IrisBatchFeatures(FeatureSet):
+    """Feature engineering for iris-batch.
     
-    Defines the schema and transformations for the input features.
-    The FeatureSet handles fitting transformers (during training)
-    and applying them (during inference) automatically.
+    Define your features here. Each Feature describes a column transformation.
     """
-    
-    # Numeric features - normalized using StandardScaler
     sepal_length = Feature(dtype="numeric", transformer=StandardScaler())
     sepal_width = Feature(dtype="numeric", transformer=StandardScaler())
     petal_length = Feature(dtype="numeric", transformer=StandardScaler())

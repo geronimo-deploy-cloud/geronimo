@@ -8,17 +8,17 @@ Deploy to Step Functions:
 """
 
 from metaflow import FlowSpec, step, schedule
-from iris_batch.sdk.pipeline import get_pipeline
+from iris_batch.sdk.pipeline import IrisBatchScoringPipeline
 
 
 @schedule(daily=True)
-class ScoringFlow(FlowSpec):
+class IrisBatchScoringFlow(FlowSpec):
     """Batch scoring flow - wraps SDK pipeline."""
 
     @step
     def start(self):
         """Initialize pipeline and load model."""
-        self.pipeline = get_pipeline()
+        self.pipeline = IrisBatchScoringPipeline()
         self.pipeline.initialize()
         print(f"Initialized: {self.pipeline}")
         self.next(self.run_pipeline)
@@ -26,15 +26,15 @@ class ScoringFlow(FlowSpec):
     @step
     def run_pipeline(self):
         """Execute the SDK pipeline."""
-        print("Running pipeline logic...")
-        self.pipeline.run()
+        self.result = self.pipeline.execute()
+        print(f"Result: {self.result}")
         self.next(self.end)
 
     @step
     def end(self):
         """Flow complete."""
-        print(f"Pipeline flow complete.")
+        print(f"Pipeline complete: {self.result}")
 
 
 if __name__ == "__main__":
-    ScoringFlow()
+    IrisBatchScoringFlow()

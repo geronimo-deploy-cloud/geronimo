@@ -123,6 +123,30 @@ class Feature:
         self.drop = drop
         self.description = description
         self._name: Optional[str] = None
+    
+    dtype: Literal["numeric", "categorical", "text", "derived"]
+    """Feature data type."""
+
+    transformer: Optional[Any]
+    """Sklearn-compatible transformer for numeric features."""
+
+    encoder: Optional[Any]
+    """Sklearn-compatible encoder for categorical features."""
+
+    source_column: Optional[str]
+    """Single input column name."""
+
+    source_columns: Optional[list[str]]
+    """List of input column names for derived features."""
+
+    derived_feature_fn: Optional[Callable]
+    """Custom function for feature engineering."""
+
+    drop: bool
+    """If True, exclude feature from final output."""
+
+    description: Optional[str]
+    """Optional human-readable feature description."""
 
     def __set_name__(self, owner, name: str) -> None:
         """Capture attribute name when defined in class."""

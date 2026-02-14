@@ -23,9 +23,12 @@ class ValidationResult:
 class ValidationEngine:
     """Runs validation rules against configurations.
 
-    The engine maintains a registry of rules that are checked
+    The engine maintains a registry of rules that is checked
     when validate() is called.
     """
+
+    _rules: list[ValidationRule]
+    """List of registered validation rules."""
 
     def __init__(self) -> None:
         """Initialize the validation engine with default rules."""

@@ -18,6 +18,21 @@ class LocalArtifactBackend(ArtifactBackend):
     
     Stores artifacts as pickle files with JSON metadata index.
     """
+
+    project: str
+    """The project name."""
+
+    version: str
+    """The version string."""
+
+    base_path: Path
+    """Base directory for artifacts."""
+
+    artifact_path: Path
+    """Directory for the specific project version."""
+
+    _metadata_file: Path
+    """Path to the metadata index file."""
     
     def __init__(
         self,

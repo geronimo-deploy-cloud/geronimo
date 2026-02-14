@@ -22,6 +22,14 @@ class Schedule:
         ```
     """
 
+
+
+    cron_expression: str
+    """The cron expression defining the schedule."""
+
+    description: Optional[str]
+    """Human-readable description of the schedule."""
+
     def __init__(self, cron_expression: str, description: Optional[str] = None):
         """Initialize schedule.
 
@@ -103,6 +111,14 @@ class Trigger:
         manual = Trigger.manual()
         ```
     """
+
+
+
+    trigger_type: TriggerType
+    """The type of event that triggers execution."""
+
+    config: dict
+    """Configuration specific to the trigger type."""
 
     def __init__(
         self,

@@ -10,3 +10,5 @@ It provides a unified framework for:
 """
 
 __version__ = "0.4.0"
+
+__docformat__ = "google"

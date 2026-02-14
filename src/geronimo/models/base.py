@@ -40,8 +40,19 @@ class Model(ABC):
 
     # Override in subclass
     name: str = "unnamed"
+    """The name of the model."""
+
     version: str = "1.0.0"
+    """The version of the model."""
+
     features: Optional["FeatureSet"] = None
+    """The associated feature set."""
+
+    estimator: Any
+    """The underlying model estimator (e.g., sklearn object)."""
+
+    _is_fitted: bool
+    """Internal flag tracking whether the model has been trained."""
 
     def __init__(self):
         """Initialize model."""

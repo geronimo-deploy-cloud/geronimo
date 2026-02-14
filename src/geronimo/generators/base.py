@@ -19,6 +19,9 @@ class BaseGenerator(ABC):
     # Subclasses should override this to specify their template subdirectory
     TEMPLATE_DIR: str = ""
 
+    _env: Environment
+    """The Jinja2 environment for template rendering."""
+
     def __init__(self) -> None:
         """Initialize the generator with Jinja2 environment."""
         self._env = Environment(

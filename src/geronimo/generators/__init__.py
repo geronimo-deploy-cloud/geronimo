@@ -23,3 +23,5 @@ __all__ = [
     "DockerGenerator",
     "PipelineGenerator",
 ]
+
+__docformat__ = "google"

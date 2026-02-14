@@ -11,3 +11,5 @@ It defines:
 This centralized configuration ensures consistency across different commands and
 environments (local dev, CI/CD, production).
 """
+
+__docformat__ = "google"

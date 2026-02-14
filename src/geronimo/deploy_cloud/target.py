@@ -13,6 +13,12 @@ from geronimo.deploy_cloud.client import GeronimoCloudClient
 class GeronimoCloudTarget:
     """Deployment target for Geronimo Cloud."""
 
+    config: DeploymentConfig
+    """The deployment configuration."""
+
+    client: GeronimoCloudClient
+    """Client for communicating with the cloud API."""
+
     def __init__(self, config: DeploymentConfig):
         self.config = config
         self.client = GeronimoCloudClient()

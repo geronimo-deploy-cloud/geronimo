@@ -23,6 +23,12 @@ class TemplateEngine:
             "framework": "sklearn",
         })
     """
+
+    templates_dir: Path
+    """Directory containing Jinja2 templates."""
+
+    env: Environment
+    """Jinja2 environment."""
     
     def __init__(self, templates_dir: Optional[Path] = None):
         """Initialize template engine.

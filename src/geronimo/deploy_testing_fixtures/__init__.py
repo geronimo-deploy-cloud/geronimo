@@ -30,3 +30,5 @@ __all__ = [
     "TestFeatures",
 ]
 
+
+__docformat__ = "google"

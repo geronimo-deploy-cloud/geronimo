@@ -138,6 +138,8 @@ Scikit-Learn, etc.) into the Geronimo ecosystem.</p>
 </span><span id="L-16"><a href="#L-16"><span class="linenos">16</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">geronimo.models.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">HyperParams</span>
 </span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a>
 </span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Model&quot;</span><span class="p">,</span> <span class="s2">&quot;HyperParams&quot;</span><span class="p">]</span>
+</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a>
+</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a><span class="n">__docformat__</span> <span class="o">=</span> <span class="s2">&quot;google&quot;</span>
 </span></pre></div>
 
 
@@ -183,73 +185,84 @@ Scikit-Learn, etc.) into the Geronimo ecosystem.</p>
 </span><span id="Model-41"><a href="#Model-41"><span class="linenos"> 41</span></a>
 </span><span id="Model-42"><a href="#Model-42"><span class="linenos"> 42</span></a>    <span class="c1"># Override in subclass</span>
 </span><span id="Model-43"><a href="#Model-43"><span class="linenos"> 43</span></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;unnamed&quot;</span>
-</span><span id="Model-44"><a href="#Model-44"><span class="linenos"> 44</span></a>    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;1.0.0&quot;</span>
-</span><span id="Model-45"><a href="#Model-45"><span class="linenos"> 45</span></a>    <span class="n">features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;FeatureSet&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="Model-46"><a href="#Model-46"><span class="linenos"> 46</span></a>
-</span><span id="Model-47"><a href="#Model-47"><span class="linenos"> 47</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="Model-48"><a href="#Model-48"><span class="linenos"> 48</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize model.&quot;&quot;&quot;</span>
-</span><span id="Model-49"><a href="#Model-49"><span class="linenos"> 49</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="Model-50"><a href="#Model-50"><span class="linenos"> 50</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span id="Model-44"><a href="#Model-44"><span class="linenos"> 44</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The name of the model.&quot;&quot;&quot;</span>
+</span><span id="Model-45"><a href="#Model-45"><span class="linenos"> 45</span></a>
+</span><span id="Model-46"><a href="#Model-46"><span class="linenos"> 46</span></a>    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;1.0.0&quot;</span>
+</span><span id="Model-47"><a href="#Model-47"><span class="linenos"> 47</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The version of the model.&quot;&quot;&quot;</span>
+</span><span id="Model-48"><a href="#Model-48"><span class="linenos"> 48</span></a>
+</span><span id="Model-49"><a href="#Model-49"><span class="linenos"> 49</span></a>    <span class="n">features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;FeatureSet&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="Model-50"><a href="#Model-50"><span class="linenos"> 50</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The associated feature set.&quot;&quot;&quot;</span>
 </span><span id="Model-51"><a href="#Model-51"><span class="linenos"> 51</span></a>
-</span><span id="Model-52"><a href="#Model-52"><span class="linenos"> 52</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="Model-53"><a href="#Model-53"><span class="linenos"> 53</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">HyperParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Model-54"><a href="#Model-54"><span class="linenos"> 54</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Train the model.</span>
-</span><span id="Model-55"><a href="#Model-55"><span class="linenos"> 55</span></a>
-</span><span id="Model-56"><a href="#Model-56"><span class="linenos"> 56</span></a><span class="sd">        Args:</span>
-</span><span id="Model-57"><a href="#Model-57"><span class="linenos"> 57</span></a><span class="sd">            X: Feature matrix.</span>
-</span><span id="Model-58"><a href="#Model-58"><span class="linenos"> 58</span></a><span class="sd">            y: Target vector.</span>
-</span><span id="Model-59"><a href="#Model-59"><span class="linenos"> 59</span></a><span class="sd">            params: Hyperparameters.</span>
-</span><span id="Model-60"><a href="#Model-60"><span class="linenos"> 60</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Model-61"><a href="#Model-61"><span class="linenos"> 61</span></a>        <span class="k">pass</span>
+</span><span id="Model-52"><a href="#Model-52"><span class="linenos"> 52</span></a>    <span class="n">estimator</span><span class="p">:</span> <span class="n">Any</span>
+</span><span id="Model-53"><a href="#Model-53"><span class="linenos"> 53</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The underlying model estimator (e.g., sklearn object).&quot;&quot;&quot;</span>
+</span><span id="Model-54"><a href="#Model-54"><span class="linenos"> 54</span></a>
+</span><span id="Model-55"><a href="#Model-55"><span class="linenos"> 55</span></a>    <span class="n">_is_fitted</span><span class="p">:</span> <span class="nb">bool</span>
+</span><span id="Model-56"><a href="#Model-56"><span class="linenos"> 56</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Internal flag tracking whether the model has been trained.&quot;&quot;&quot;</span>
+</span><span id="Model-57"><a href="#Model-57"><span class="linenos"> 57</span></a>
+</span><span id="Model-58"><a href="#Model-58"><span class="linenos"> 58</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="Model-59"><a href="#Model-59"><span class="linenos"> 59</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize model.&quot;&quot;&quot;</span>
+</span><span id="Model-60"><a href="#Model-60"><span class="linenos"> 60</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="Model-61"><a href="#Model-61"><span class="linenos"> 61</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 </span><span id="Model-62"><a href="#Model-62"><span class="linenos"> 62</span></a>
 </span><span id="Model-63"><a href="#Model-63"><span class="linenos"> 63</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="Model-64"><a href="#Model-64"><span class="linenos"> 64</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span><span id="Model-65"><a href="#Model-65"><span class="linenos"> 65</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate predictions.</span>
+</span><span id="Model-64"><a href="#Model-64"><span class="linenos"> 64</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">HyperParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Model-65"><a href="#Model-65"><span class="linenos"> 65</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Train the model.</span>
 </span><span id="Model-66"><a href="#Model-66"><span class="linenos"> 66</span></a>
 </span><span id="Model-67"><a href="#Model-67"><span class="linenos"> 67</span></a><span class="sd">        Args:</span>
 </span><span id="Model-68"><a href="#Model-68"><span class="linenos"> 68</span></a><span class="sd">            X: Feature matrix.</span>
-</span><span id="Model-69"><a href="#Model-69"><span class="linenos"> 69</span></a>
-</span><span id="Model-70"><a href="#Model-70"><span class="linenos"> 70</span></a><span class="sd">        Returns:</span>
-</span><span id="Model-71"><a href="#Model-71"><span class="linenos"> 71</span></a><span class="sd">            Predictions.</span>
-</span><span id="Model-72"><a href="#Model-72"><span class="linenos"> 72</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Model-73"><a href="#Model-73"><span class="linenos"> 73</span></a>        <span class="k">pass</span>
-</span><span id="Model-74"><a href="#Model-74"><span class="linenos"> 74</span></a>
-</span><span id="Model-75"><a href="#Model-75"><span class="linenos"> 75</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="s2">&quot;ArtifactStore&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Model-76"><a href="#Model-76"><span class="linenos"> 76</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save model to artifact store.</span>
+</span><span id="Model-69"><a href="#Model-69"><span class="linenos"> 69</span></a><span class="sd">            y: Target vector.</span>
+</span><span id="Model-70"><a href="#Model-70"><span class="linenos"> 70</span></a><span class="sd">            params: Hyperparameters.</span>
+</span><span id="Model-71"><a href="#Model-71"><span class="linenos"> 71</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Model-72"><a href="#Model-72"><span class="linenos"> 72</span></a>        <span class="k">pass</span>
+</span><span id="Model-73"><a href="#Model-73"><span class="linenos"> 73</span></a>
+</span><span id="Model-74"><a href="#Model-74"><span class="linenos"> 74</span></a>    <span class="nd">@abstractmethod</span>
+</span><span id="Model-75"><a href="#Model-75"><span class="linenos"> 75</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span id="Model-76"><a href="#Model-76"><span class="linenos"> 76</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate predictions.</span>
 </span><span id="Model-77"><a href="#Model-77"><span class="linenos"> 77</span></a>
 </span><span id="Model-78"><a href="#Model-78"><span class="linenos"> 78</span></a><span class="sd">        Args:</span>
-</span><span id="Model-79"><a href="#Model-79"><span class="linenos"> 79</span></a><span class="sd">            store: ArtifactStore instance.</span>
-</span><span id="Model-80"><a href="#Model-80"><span class="linenos"> 80</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Model-81"><a href="#Model-81"><span class="linenos"> 81</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Model-82"><a href="#Model-82"><span class="linenos"> 82</span></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No estimator to save. Train the model first.&quot;</span><span class="p">)</span>
-</span><span id="Model-83"><a href="#Model-83"><span class="linenos"> 83</span></a>
-</span><span id="Model-84"><a href="#Model-84"><span class="linenos"> 84</span></a>        <span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">,</span> <span class="n">artifact_type</span><span class="o">=</span><span class="s2">&quot;estimator&quot;</span><span class="p">)</span>
+</span><span id="Model-79"><a href="#Model-79"><span class="linenos"> 79</span></a><span class="sd">            X: Feature matrix.</span>
+</span><span id="Model-80"><a href="#Model-80"><span class="linenos"> 80</span></a>
+</span><span id="Model-81"><a href="#Model-81"><span class="linenos"> 81</span></a><span class="sd">        Returns:</span>
+</span><span id="Model-82"><a href="#Model-82"><span class="linenos"> 82</span></a><span class="sd">            Predictions.</span>
+</span><span id="Model-83"><a href="#Model-83"><span class="linenos"> 83</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Model-84"><a href="#Model-84"><span class="linenos"> 84</span></a>        <span class="k">pass</span>
 </span><span id="Model-85"><a href="#Model-85"><span class="linenos"> 85</span></a>
-</span><span id="Model-86"><a href="#Model-86"><span class="linenos"> 86</span></a>        <span class="c1"># Save features if present</span>
-</span><span id="Model-87"><a href="#Model-87"><span class="linenos"> 87</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;save&quot;</span><span class="p">):</span>
-</span><span id="Model-88"><a href="#Model-88"><span class="linenos"> 88</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
-</span><span id="Model-89"><a href="#Model-89"><span class="linenos"> 89</span></a>
-</span><span id="Model-90"><a href="#Model-90"><span class="linenos"> 90</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="s2">&quot;ArtifactStore&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Model-91"><a href="#Model-91"><span class="linenos"> 91</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Load model from artifact store.</span>
-</span><span id="Model-92"><a href="#Model-92"><span class="linenos"> 92</span></a>
-</span><span id="Model-93"><a href="#Model-93"><span class="linenos"> 93</span></a><span class="sd">        Args:</span>
-</span><span id="Model-94"><a href="#Model-94"><span class="linenos"> 94</span></a><span class="sd">            store: ArtifactStore instance.</span>
-</span><span id="Model-95"><a href="#Model-95"><span class="linenos"> 95</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Model-96"><a href="#Model-96"><span class="linenos"> 96</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
-</span><span id="Model-97"><a href="#Model-97"><span class="linenos"> 97</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span id="Model-98"><a href="#Model-98"><span class="linenos"> 98</span></a>
-</span><span id="Model-99"><a href="#Model-99"><span class="linenos"> 99</span></a>        <span class="c1"># Load features if present</span>
-</span><span id="Model-100"><a href="#Model-100"><span class="linenos">100</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;load&quot;</span><span class="p">):</span>
-</span><span id="Model-101"><a href="#Model-101"><span class="linenos">101</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
-</span><span id="Model-102"><a href="#Model-102"><span class="linenos">102</span></a>
-</span><span id="Model-103"><a href="#Model-103"><span class="linenos">103</span></a>    <span class="nd">@property</span>
-</span><span id="Model-104"><a href="#Model-104"><span class="linenos">104</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="Model-105"><a href="#Model-105"><span class="linenos">105</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if model has been trained.&quot;&quot;&quot;</span>
-</span><span id="Model-106"><a href="#Model-106"><span class="linenos">106</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span>
-</span><span id="Model-107"><a href="#Model-107"><span class="linenos">107</span></a>
-</span><span id="Model-108"><a href="#Model-108"><span class="linenos">108</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="Model-109"><a href="#Model-109"><span class="linenos">109</span></a>        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;fitted&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span> <span class="k">else</span> <span class="s2">&quot;not fitted&quot;</span>
-</span><span id="Model-110"><a href="#Model-110"><span class="linenos">110</span></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span id="Model-86"><a href="#Model-86"><span class="linenos"> 86</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="s2">&quot;ArtifactStore&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Model-87"><a href="#Model-87"><span class="linenos"> 87</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save model to artifact store.</span>
+</span><span id="Model-88"><a href="#Model-88"><span class="linenos"> 88</span></a>
+</span><span id="Model-89"><a href="#Model-89"><span class="linenos"> 89</span></a><span class="sd">        Args:</span>
+</span><span id="Model-90"><a href="#Model-90"><span class="linenos"> 90</span></a><span class="sd">            store: ArtifactStore instance.</span>
+</span><span id="Model-91"><a href="#Model-91"><span class="linenos"> 91</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Model-92"><a href="#Model-92"><span class="linenos"> 92</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Model-93"><a href="#Model-93"><span class="linenos"> 93</span></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No estimator to save. Train the model first.&quot;</span><span class="p">)</span>
+</span><span id="Model-94"><a href="#Model-94"><span class="linenos"> 94</span></a>
+</span><span id="Model-95"><a href="#Model-95"><span class="linenos"> 95</span></a>        <span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">,</span> <span class="n">artifact_type</span><span class="o">=</span><span class="s2">&quot;estimator&quot;</span><span class="p">)</span>
+</span><span id="Model-96"><a href="#Model-96"><span class="linenos"> 96</span></a>
+</span><span id="Model-97"><a href="#Model-97"><span class="linenos"> 97</span></a>        <span class="c1"># Save features if present</span>
+</span><span id="Model-98"><a href="#Model-98"><span class="linenos"> 98</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;save&quot;</span><span class="p">):</span>
+</span><span id="Model-99"><a href="#Model-99"><span class="linenos"> 99</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+</span><span id="Model-100"><a href="#Model-100"><span class="linenos">100</span></a>
+</span><span id="Model-101"><a href="#Model-101"><span class="linenos">101</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="s2">&quot;ArtifactStore&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Model-102"><a href="#Model-102"><span class="linenos">102</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Load model from artifact store.</span>
+</span><span id="Model-103"><a href="#Model-103"><span class="linenos">103</span></a>
+</span><span id="Model-104"><a href="#Model-104"><span class="linenos">104</span></a><span class="sd">        Args:</span>
+</span><span id="Model-105"><a href="#Model-105"><span class="linenos">105</span></a><span class="sd">            store: ArtifactStore instance.</span>
+</span><span id="Model-106"><a href="#Model-106"><span class="linenos">106</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Model-107"><a href="#Model-107"><span class="linenos">107</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
+</span><span id="Model-108"><a href="#Model-108"><span class="linenos">108</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="Model-109"><a href="#Model-109"><span class="linenos">109</span></a>
+</span><span id="Model-110"><a href="#Model-110"><span class="linenos">110</span></a>        <span class="c1"># Load features if present</span>
+</span><span id="Model-111"><a href="#Model-111"><span class="linenos">111</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;load&quot;</span><span class="p">):</span>
+</span><span id="Model-112"><a href="#Model-112"><span class="linenos">112</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+</span><span id="Model-113"><a href="#Model-113"><span class="linenos">113</span></a>
+</span><span id="Model-114"><a href="#Model-114"><span class="linenos">114</span></a>    <span class="nd">@property</span>
+</span><span id="Model-115"><a href="#Model-115"><span class="linenos">115</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="Model-116"><a href="#Model-116"><span class="linenos">116</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if model has been trained.&quot;&quot;&quot;</span>
+</span><span id="Model-117"><a href="#Model-117"><span class="linenos">117</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span>
+</span><span id="Model-118"><a href="#Model-118"><span class="linenos">118</span></a>
+</span><span id="Model-119"><a href="#Model-119"><span class="linenos">119</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="Model-120"><a href="#Model-120"><span class="linenos">120</span></a>        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;fitted&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span> <span class="k">else</span> <span class="s2">&quot;not fitted&quot;</span>
+</span><span id="Model-121"><a href="#Model-121"><span class="linenos">121</span></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">)&quot;</span>
 </span></pre></div>
 
 
@@ -258,9 +271,10 @@ Scikit-Learn, etc.) into the Geronimo ecosystem.</p>
 <p>Provides a standardized interface for training and inference
 with integrated artifact management.</p>
 
-<p>Example:</p>
+<h6 id="example">Example:</h6>
 
-<pre><code><div class="pdoc-code codehilite">
+<blockquote>
+  <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn"><a href="">geronimo.models</a></span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">HyperParams</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn"><a href="features.html">geronimo.features</a></span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureSet</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.ensemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomForestClassifier</span>
@@ -279,8 +293,8 @@ with integrated artifact management.</p>
     <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
 </code></pre>
-</div>
-</code></pre>
+  </div>
+</blockquote>
 </div>
 
 
@@ -294,10 +308,10 @@ with integrated artifact management.</p>
 
     </div>
     <a class="headerlink" href="#Model.__init__"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.__init__-47"><a href="#Model.__init__-47"><span class="linenos">47</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="Model.__init__-48"><a href="#Model.__init__-48"><span class="linenos">48</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize model.&quot;&quot;&quot;</span>
-</span><span id="Model.__init__-49"><a href="#Model.__init__-49"><span class="linenos">49</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="Model.__init__-50"><a href="#Model.__init__-50"><span class="linenos">50</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.__init__-58"><a href="#Model.__init__-58"><span class="linenos">58</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="Model.__init__-59"><a href="#Model.__init__-59"><span class="linenos">59</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize model.&quot;&quot;&quot;</span>
+</span><span id="Model.__init__-60"><a href="#Model.__init__-60"><span class="linenos">60</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="Model.__init__-61"><a href="#Model.__init__-61"><span class="linenos">61</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 </span></pre></div>
 
 
@@ -315,7 +329,9 @@ with integrated artifact management.</p>
     </div>
     <a class="headerlink" href="#Model.name"></a>
     
-    
+            <div class="docstring"><p>The name of the model.</p>
+</div>
+
 
                             </div>
                             <div id="Model.version" class="classattr">
@@ -327,7 +343,9 @@ with integrated artifact management.</p>
     </div>
     <a class="headerlink" href="#Model.version"></a>
     
-    
+            <div class="docstring"><p>The version of the model.</p>
+</div>
+
 
                             </div>
                             <div id="Model.features" class="classattr">
@@ -339,7 +357,9 @@ with integrated artifact management.</p>
     </div>
     <a class="headerlink" href="#Model.features"></a>
     
-    
+            <div class="docstring"><p>The associated feature set.</p>
+</div>
+
 
                             </div>
                             <div id="Model.estimator" class="classattr">
@@ -350,7 +370,9 @@ with integrated artifact management.</p>
     </div>
     <a class="headerlink" href="#Model.estimator"></a>
     
-    
+            <div class="docstring"><p>The underlying model estimator (e.g., sklearn object).</p>
+</div>
+
 
                             </div>
                             <div id="Model.train" class="classattr">
@@ -365,25 +387,28 @@ with integrated artifact management.</p>
 
     </div>
     <a class="headerlink" href="#Model.train"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.train-52"><a href="#Model.train-52"><span class="linenos">52</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="Model.train-53"><a href="#Model.train-53"><span class="linenos">53</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">HyperParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Model.train-54"><a href="#Model.train-54"><span class="linenos">54</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Train the model.</span>
-</span><span id="Model.train-55"><a href="#Model.train-55"><span class="linenos">55</span></a>
-</span><span id="Model.train-56"><a href="#Model.train-56"><span class="linenos">56</span></a><span class="sd">        Args:</span>
-</span><span id="Model.train-57"><a href="#Model.train-57"><span class="linenos">57</span></a><span class="sd">            X: Feature matrix.</span>
-</span><span id="Model.train-58"><a href="#Model.train-58"><span class="linenos">58</span></a><span class="sd">            y: Target vector.</span>
-</span><span id="Model.train-59"><a href="#Model.train-59"><span class="linenos">59</span></a><span class="sd">            params: Hyperparameters.</span>
-</span><span id="Model.train-60"><a href="#Model.train-60"><span class="linenos">60</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Model.train-61"><a href="#Model.train-61"><span class="linenos">61</span></a>        <span class="k">pass</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.train-63"><a href="#Model.train-63"><span class="linenos">63</span></a>    <span class="nd">@abstractmethod</span>
+</span><span id="Model.train-64"><a href="#Model.train-64"><span class="linenos">64</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">HyperParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Model.train-65"><a href="#Model.train-65"><span class="linenos">65</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Train the model.</span>
+</span><span id="Model.train-66"><a href="#Model.train-66"><span class="linenos">66</span></a>
+</span><span id="Model.train-67"><a href="#Model.train-67"><span class="linenos">67</span></a><span class="sd">        Args:</span>
+</span><span id="Model.train-68"><a href="#Model.train-68"><span class="linenos">68</span></a><span class="sd">            X: Feature matrix.</span>
+</span><span id="Model.train-69"><a href="#Model.train-69"><span class="linenos">69</span></a><span class="sd">            y: Target vector.</span>
+</span><span id="Model.train-70"><a href="#Model.train-70"><span class="linenos">70</span></a><span class="sd">            params: Hyperparameters.</span>
+</span><span id="Model.train-71"><a href="#Model.train-71"><span class="linenos">71</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Model.train-72"><a href="#Model.train-72"><span class="linenos">72</span></a>        <span class="k">pass</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Train the model.</p>
 
-<p>Args:
-    X: Feature matrix.
-    y: Target vector.
-    params: Hyperparameters.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>X:</strong>  Feature matrix.</li>
+<li><strong>y:</strong>  Target vector.</li>
+<li><strong>params:</strong>  Hyperparameters.</li>
+</ul>
 </div>
 
 
@@ -400,27 +425,33 @@ with integrated artifact management.</p>
 
     </div>
     <a class="headerlink" href="#Model.predict"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.predict-63"><a href="#Model.predict-63"><span class="linenos">63</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="Model.predict-64"><a href="#Model.predict-64"><span class="linenos">64</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span><span id="Model.predict-65"><a href="#Model.predict-65"><span class="linenos">65</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate predictions.</span>
-</span><span id="Model.predict-66"><a href="#Model.predict-66"><span class="linenos">66</span></a>
-</span><span id="Model.predict-67"><a href="#Model.predict-67"><span class="linenos">67</span></a><span class="sd">        Args:</span>
-</span><span id="Model.predict-68"><a href="#Model.predict-68"><span class="linenos">68</span></a><span class="sd">            X: Feature matrix.</span>
-</span><span id="Model.predict-69"><a href="#Model.predict-69"><span class="linenos">69</span></a>
-</span><span id="Model.predict-70"><a href="#Model.predict-70"><span class="linenos">70</span></a><span class="sd">        Returns:</span>
-</span><span id="Model.predict-71"><a href="#Model.predict-71"><span class="linenos">71</span></a><span class="sd">            Predictions.</span>
-</span><span id="Model.predict-72"><a href="#Model.predict-72"><span class="linenos">72</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Model.predict-73"><a href="#Model.predict-73"><span class="linenos">73</span></a>        <span class="k">pass</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.predict-74"><a href="#Model.predict-74"><span class="linenos">74</span></a>    <span class="nd">@abstractmethod</span>
+</span><span id="Model.predict-75"><a href="#Model.predict-75"><span class="linenos">75</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span id="Model.predict-76"><a href="#Model.predict-76"><span class="linenos">76</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate predictions.</span>
+</span><span id="Model.predict-77"><a href="#Model.predict-77"><span class="linenos">77</span></a>
+</span><span id="Model.predict-78"><a href="#Model.predict-78"><span class="linenos">78</span></a><span class="sd">        Args:</span>
+</span><span id="Model.predict-79"><a href="#Model.predict-79"><span class="linenos">79</span></a><span class="sd">            X: Feature matrix.</span>
+</span><span id="Model.predict-80"><a href="#Model.predict-80"><span class="linenos">80</span></a>
+</span><span id="Model.predict-81"><a href="#Model.predict-81"><span class="linenos">81</span></a><span class="sd">        Returns:</span>
+</span><span id="Model.predict-82"><a href="#Model.predict-82"><span class="linenos">82</span></a><span class="sd">            Predictions.</span>
+</span><span id="Model.predict-83"><a href="#Model.predict-83"><span class="linenos">83</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Model.predict-84"><a href="#Model.predict-84"><span class="linenos">84</span></a>        <span class="k">pass</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Generate predictions.</p>
 
-<p>Args:
-    X: Feature matrix.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Predictions.</p>
+<ul>
+<li><strong>X:</strong>  Feature matrix.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Predictions.</p>
+</blockquote>
 </div>
 
 
@@ -436,27 +467,30 @@ with integrated artifact management.</p>
 
     </div>
     <a class="headerlink" href="#Model.save"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.save-75"><a href="#Model.save-75"><span class="linenos">75</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="s2">&quot;ArtifactStore&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Model.save-76"><a href="#Model.save-76"><span class="linenos">76</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save model to artifact store.</span>
-</span><span id="Model.save-77"><a href="#Model.save-77"><span class="linenos">77</span></a>
-</span><span id="Model.save-78"><a href="#Model.save-78"><span class="linenos">78</span></a><span class="sd">        Args:</span>
-</span><span id="Model.save-79"><a href="#Model.save-79"><span class="linenos">79</span></a><span class="sd">            store: ArtifactStore instance.</span>
-</span><span id="Model.save-80"><a href="#Model.save-80"><span class="linenos">80</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Model.save-81"><a href="#Model.save-81"><span class="linenos">81</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Model.save-82"><a href="#Model.save-82"><span class="linenos">82</span></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No estimator to save. Train the model first.&quot;</span><span class="p">)</span>
-</span><span id="Model.save-83"><a href="#Model.save-83"><span class="linenos">83</span></a>
-</span><span id="Model.save-84"><a href="#Model.save-84"><span class="linenos">84</span></a>        <span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">,</span> <span class="n">artifact_type</span><span class="o">=</span><span class="s2">&quot;estimator&quot;</span><span class="p">)</span>
-</span><span id="Model.save-85"><a href="#Model.save-85"><span class="linenos">85</span></a>
-</span><span id="Model.save-86"><a href="#Model.save-86"><span class="linenos">86</span></a>        <span class="c1"># Save features if present</span>
-</span><span id="Model.save-87"><a href="#Model.save-87"><span class="linenos">87</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;save&quot;</span><span class="p">):</span>
-</span><span id="Model.save-88"><a href="#Model.save-88"><span class="linenos">88</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.save-86"><a href="#Model.save-86"><span class="linenos">86</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="s2">&quot;ArtifactStore&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Model.save-87"><a href="#Model.save-87"><span class="linenos">87</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save model to artifact store.</span>
+</span><span id="Model.save-88"><a href="#Model.save-88"><span class="linenos">88</span></a>
+</span><span id="Model.save-89"><a href="#Model.save-89"><span class="linenos">89</span></a><span class="sd">        Args:</span>
+</span><span id="Model.save-90"><a href="#Model.save-90"><span class="linenos">90</span></a><span class="sd">            store: ArtifactStore instance.</span>
+</span><span id="Model.save-91"><a href="#Model.save-91"><span class="linenos">91</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Model.save-92"><a href="#Model.save-92"><span class="linenos">92</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Model.save-93"><a href="#Model.save-93"><span class="linenos">93</span></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No estimator to save. Train the model first.&quot;</span><span class="p">)</span>
+</span><span id="Model.save-94"><a href="#Model.save-94"><span class="linenos">94</span></a>
+</span><span id="Model.save-95"><a href="#Model.save-95"><span class="linenos">95</span></a>        <span class="n">store</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">,</span> <span class="n">artifact_type</span><span class="o">=</span><span class="s2">&quot;estimator&quot;</span><span class="p">)</span>
+</span><span id="Model.save-96"><a href="#Model.save-96"><span class="linenos">96</span></a>
+</span><span id="Model.save-97"><a href="#Model.save-97"><span class="linenos">97</span></a>        <span class="c1"># Save features if present</span>
+</span><span id="Model.save-98"><a href="#Model.save-98"><span class="linenos">98</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;save&quot;</span><span class="p">):</span>
+</span><span id="Model.save-99"><a href="#Model.save-99"><span class="linenos">99</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Save model to artifact store.</p>
 
-<p>Args:
-    store: ArtifactStore instance.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>store:</strong>  ArtifactStore instance.</li>
+</ul>
 </div>
 
 
@@ -472,25 +506,28 @@ with integrated artifact management.</p>
 
     </div>
     <a class="headerlink" href="#Model.load"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.load-90"><a href="#Model.load-90"><span class="linenos"> 90</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="s2">&quot;ArtifactStore&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Model.load-91"><a href="#Model.load-91"><span class="linenos"> 91</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Load model from artifact store.</span>
-</span><span id="Model.load-92"><a href="#Model.load-92"><span class="linenos"> 92</span></a>
-</span><span id="Model.load-93"><a href="#Model.load-93"><span class="linenos"> 93</span></a><span class="sd">        Args:</span>
-</span><span id="Model.load-94"><a href="#Model.load-94"><span class="linenos"> 94</span></a><span class="sd">            store: ArtifactStore instance.</span>
-</span><span id="Model.load-95"><a href="#Model.load-95"><span class="linenos"> 95</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Model.load-96"><a href="#Model.load-96"><span class="linenos"> 96</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
-</span><span id="Model.load-97"><a href="#Model.load-97"><span class="linenos"> 97</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span id="Model.load-98"><a href="#Model.load-98"><span class="linenos"> 98</span></a>
-</span><span id="Model.load-99"><a href="#Model.load-99"><span class="linenos"> 99</span></a>        <span class="c1"># Load features if present</span>
-</span><span id="Model.load-100"><a href="#Model.load-100"><span class="linenos">100</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;load&quot;</span><span class="p">):</span>
-</span><span id="Model.load-101"><a href="#Model.load-101"><span class="linenos">101</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.load-101"><a href="#Model.load-101"><span class="linenos">101</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="s2">&quot;ArtifactStore&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Model.load-102"><a href="#Model.load-102"><span class="linenos">102</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Load model from artifact store.</span>
+</span><span id="Model.load-103"><a href="#Model.load-103"><span class="linenos">103</span></a>
+</span><span id="Model.load-104"><a href="#Model.load-104"><span class="linenos">104</span></a><span class="sd">        Args:</span>
+</span><span id="Model.load-105"><a href="#Model.load-105"><span class="linenos">105</span></a><span class="sd">            store: ArtifactStore instance.</span>
+</span><span id="Model.load-106"><a href="#Model.load-106"><span class="linenos">106</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Model.load-107"><a href="#Model.load-107"><span class="linenos">107</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
+</span><span id="Model.load-108"><a href="#Model.load-108"><span class="linenos">108</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="Model.load-109"><a href="#Model.load-109"><span class="linenos">109</span></a>
+</span><span id="Model.load-110"><a href="#Model.load-110"><span class="linenos">110</span></a>        <span class="c1"># Load features if present</span>
+</span><span id="Model.load-111"><a href="#Model.load-111"><span class="linenos">111</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;load&quot;</span><span class="p">):</span>
+</span><span id="Model.load-112"><a href="#Model.load-112"><span class="linenos">112</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Load model from artifact store.</p>
 
-<p>Args:
-    store: ArtifactStore instance.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>store:</strong>  ArtifactStore instance.</li>
+</ul>
 </div>
 
 
@@ -504,10 +541,10 @@ with integrated artifact management.</p>
 
     </div>
     <a class="headerlink" href="#Model.is_fitted"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.is_fitted-103"><a href="#Model.is_fitted-103"><span class="linenos">103</span></a>    <span class="nd">@property</span>
-</span><span id="Model.is_fitted-104"><a href="#Model.is_fitted-104"><span class="linenos">104</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="Model.is_fitted-105"><a href="#Model.is_fitted-105"><span class="linenos">105</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if model has been trained.&quot;&quot;&quot;</span>
-</span><span id="Model.is_fitted-106"><a href="#Model.is_fitted-106"><span class="linenos">106</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Model.is_fitted-114"><a href="#Model.is_fitted-114"><span class="linenos">114</span></a>    <span class="nd">@property</span>
+</span><span id="Model.is_fitted-115"><a href="#Model.is_fitted-115"><span class="linenos">115</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="Model.is_fitted-116"><a href="#Model.is_fitted-116"><span class="linenos">116</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if model has been trained.&quot;&quot;&quot;</span>
+</span><span id="Model.is_fitted-117"><a href="#Model.is_fitted-117"><span class="linenos">117</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_fitted</span>
 </span></pre></div>
 
 
@@ -609,9 +646,10 @@ with integrated artifact management.</p>
 
             <div class="docstring"><p>Hyperparameter configuration with grid search support.</p>
 
-<p>Example:</p>
+<h6 id="example">Example:</h6>
 
-<pre><code><div class="pdoc-code codehilite">
+<blockquote>
+  <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn"><a href="">geronimo.models</a></span><span class="w"> </span><span class="kn">import</span> <span class="n">HyperParams</span>
 
 <span class="c1"># Define parameter space</span>
@@ -628,8 +666,8 @@ with integrated artifact management.</p>
 <span class="c1"># Get as dict</span>
 <span class="n">params</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>  <span class="c1"># Returns first combination</span>
 </code></pre>
-</div>
-</code></pre>
+  </div>
+</blockquote>
 </div>
 
 
@@ -657,10 +695,15 @@ with integrated artifact management.</p>
 
             <div class="docstring"><p>Initialize hyperparameters.</p>
 
-<p>Args:
-    **params: Parameter name-value pairs. Values can be:
-        - Single value (fixed parameter)
-        - List of values (for grid search)</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>**params:</strong>  Parameter name-value pairs. Values can be:
+<ul>
+<li>Single value (fixed parameter)</li>
+<li>List of values (for grid search)</li>
+</ul></li>
+</ul>
 </div>
 
 
@@ -694,8 +737,11 @@ with integrated artifact management.</p>
 
 <p>For list parameters, returns the first value.</p>
 
-<p>Returns:
-    Dictionary of parameter values.</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Dictionary of parameter values.</p>
+</blockquote>
 </div>
 
 
@@ -734,8 +780,11 @@ with integrated artifact management.</p>
 
             <div class="docstring"><p>Generate all parameter combinations for grid search.</p>
 
-<p>Yields:
-    HyperParams instance for each combination.</p>
+<h6 id="yields">Yields:</h6>
+
+<blockquote>
+  <p>HyperParams instance for each combination.</p>
+</blockquote>
 </div>
 
 

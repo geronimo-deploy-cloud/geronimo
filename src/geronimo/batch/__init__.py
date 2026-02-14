@@ -16,3 +16,5 @@ from geronimo.batch.pipeline import BatchPipeline
 from geronimo.batch.schedule import Schedule, Trigger
 
 __all__ = ["BatchPipeline", "Schedule", "Trigger"]
+
+__docformat__ = "google"

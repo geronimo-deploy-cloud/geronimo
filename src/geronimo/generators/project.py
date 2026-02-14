@@ -47,6 +47,24 @@ class ProjectGenerator(BaseGenerator):
 
     TEMPLATE_DIR = "project"
 
+    project_name: str
+    """The project name (kebab-case)."""
+
+    framework: MLFramework
+    """The selected ML framework."""
+
+    output_dir: Path
+    """The output directory path."""
+
+    project_dir: Path
+    """The full path to the project directory."""
+
+    template: str
+    """The selected project template (realtime/batch/both)."""
+
+    engine: TemplateEngine
+    """The template rendering engine."""
+
     def __init__(
         self,
         project_name: str,

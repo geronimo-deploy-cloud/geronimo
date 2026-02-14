@@ -124,6 +124,8 @@ and model inference.</p>
 </span><span id="L-16"><a href="#L-16"><span class="linenos">16</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">geronimo.serving.endpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Endpoint</span>
 </span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a>
 </span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Endpoint&quot;</span><span class="p">]</span>
+</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a>
+</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a><span class="n">__docformat__</span> <span class="o">=</span> <span class="s2">&quot;google&quot;</span>
 </span></pre></div>
 
 
@@ -178,87 +180,93 @@ and model inference.</p>
 </span><span id="Endpoint-47"><a href="#Endpoint-47"><span class="linenos"> 47</span></a>    <span class="n">artifact_project</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span id="Endpoint-48"><a href="#Endpoint-48"><span class="linenos"> 48</span></a>    <span class="n">artifact_version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span id="Endpoint-49"><a href="#Endpoint-49"><span class="linenos"> 49</span></a>
-</span><span id="Endpoint-50"><a href="#Endpoint-50"><span class="linenos"> 50</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="Endpoint-51"><a href="#Endpoint-51"><span class="linenos"> 51</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize endpoint.&quot;&quot;&quot;</span>
-</span><span id="Endpoint-52"><a href="#Endpoint-52"><span class="linenos"> 52</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="Endpoint-53"><a href="#Endpoint-53"><span class="linenos"> 53</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span id="Endpoint-54"><a href="#Endpoint-54"><span class="linenos"> 54</span></a>
-</span><span id="Endpoint-55"><a href="#Endpoint-55"><span class="linenos"> 55</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span>
-</span><span id="Endpoint-56"><a href="#Endpoint-56"><span class="linenos"> 56</span></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="Endpoint-57"><a href="#Endpoint-57"><span class="linenos"> 57</span></a>        <span class="n">project</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="Endpoint-58"><a href="#Endpoint-58"><span class="linenos"> 58</span></a>        <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="Endpoint-59"><a href="#Endpoint-59"><span class="linenos"> 59</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Endpoint-60"><a href="#Endpoint-60"><span class="linenos"> 60</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize endpoint by loading model artifacts.</span>
-</span><span id="Endpoint-61"><a href="#Endpoint-61"><span class="linenos"> 61</span></a>
-</span><span id="Endpoint-62"><a href="#Endpoint-62"><span class="linenos"> 62</span></a><span class="sd">        Args:</span>
-</span><span id="Endpoint-63"><a href="#Endpoint-63"><span class="linenos"> 63</span></a><span class="sd">            project: Artifact project name.</span>
-</span><span id="Endpoint-64"><a href="#Endpoint-64"><span class="linenos"> 64</span></a><span class="sd">            version: Artifact version.</span>
-</span><span id="Endpoint-65"><a href="#Endpoint-65"><span class="linenos"> 65</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Endpoint-66"><a href="#Endpoint-66"><span class="linenos"> 66</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">geronimo.artifacts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArtifactStore</span>
+</span><span id="Endpoint-50"><a href="#Endpoint-50"><span class="linenos"> 50</span></a>    <span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Model&quot;</span><span class="p">]</span>
+</span><span id="Endpoint-51"><a href="#Endpoint-51"><span class="linenos"> 51</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The loaded model instance.&quot;&quot;&quot;</span>
+</span><span id="Endpoint-52"><a href="#Endpoint-52"><span class="linenos"> 52</span></a>
+</span><span id="Endpoint-53"><a href="#Endpoint-53"><span class="linenos"> 53</span></a>    <span class="n">_is_initialized</span><span class="p">:</span> <span class="nb">bool</span>
+</span><span id="Endpoint-54"><a href="#Endpoint-54"><span class="linenos"> 54</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Internal flag tracking initialization status.&quot;&quot;&quot;</span>
+</span><span id="Endpoint-55"><a href="#Endpoint-55"><span class="linenos"> 55</span></a>
+</span><span id="Endpoint-56"><a href="#Endpoint-56"><span class="linenos"> 56</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="Endpoint-57"><a href="#Endpoint-57"><span class="linenos"> 57</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize endpoint.&quot;&quot;&quot;</span>
+</span><span id="Endpoint-58"><a href="#Endpoint-58"><span class="linenos"> 58</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="Endpoint-59"><a href="#Endpoint-59"><span class="linenos"> 59</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span id="Endpoint-60"><a href="#Endpoint-60"><span class="linenos"> 60</span></a>
+</span><span id="Endpoint-61"><a href="#Endpoint-61"><span class="linenos"> 61</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span>
+</span><span id="Endpoint-62"><a href="#Endpoint-62"><span class="linenos"> 62</span></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="Endpoint-63"><a href="#Endpoint-63"><span class="linenos"> 63</span></a>        <span class="n">project</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="Endpoint-64"><a href="#Endpoint-64"><span class="linenos"> 64</span></a>        <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="Endpoint-65"><a href="#Endpoint-65"><span class="linenos"> 65</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Endpoint-66"><a href="#Endpoint-66"><span class="linenos"> 66</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize endpoint by loading model artifacts.</span>
 </span><span id="Endpoint-67"><a href="#Endpoint-67"><span class="linenos"> 67</span></a>
-</span><span id="Endpoint-68"><a href="#Endpoint-68"><span class="linenos"> 68</span></a>        <span class="n">project</span> <span class="o">=</span> <span class="n">project</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact_project</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">name</span>
-</span><span id="Endpoint-69"><a href="#Endpoint-69"><span class="linenos"> 69</span></a>        <span class="n">version</span> <span class="o">=</span> <span class="n">version</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact_version</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">version</span>
-</span><span id="Endpoint-70"><a href="#Endpoint-70"><span class="linenos"> 70</span></a>
-</span><span id="Endpoint-71"><a href="#Endpoint-71"><span class="linenos"> 71</span></a>        <span class="n">store</span> <span class="o">=</span> <span class="n">ArtifactStore</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">project</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
-</span><span id="Endpoint-72"><a href="#Endpoint-72"><span class="linenos"> 72</span></a>
-</span><span id="Endpoint-73"><a href="#Endpoint-73"><span class="linenos"> 73</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="p">()</span>
-</span><span id="Endpoint-74"><a href="#Endpoint-74"><span class="linenos"> 74</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
-</span><span id="Endpoint-75"><a href="#Endpoint-75"><span class="linenos"> 75</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="Endpoint-68"><a href="#Endpoint-68"><span class="linenos"> 68</span></a><span class="sd">        Args:</span>
+</span><span id="Endpoint-69"><a href="#Endpoint-69"><span class="linenos"> 69</span></a><span class="sd">            project: Artifact project name.</span>
+</span><span id="Endpoint-70"><a href="#Endpoint-70"><span class="linenos"> 70</span></a><span class="sd">            version: Artifact version.</span>
+</span><span id="Endpoint-71"><a href="#Endpoint-71"><span class="linenos"> 71</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Endpoint-72"><a href="#Endpoint-72"><span class="linenos"> 72</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">geronimo.artifacts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArtifactStore</span>
+</span><span id="Endpoint-73"><a href="#Endpoint-73"><span class="linenos"> 73</span></a>
+</span><span id="Endpoint-74"><a href="#Endpoint-74"><span class="linenos"> 74</span></a>        <span class="n">project</span> <span class="o">=</span> <span class="n">project</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact_project</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">name</span>
+</span><span id="Endpoint-75"><a href="#Endpoint-75"><span class="linenos"> 75</span></a>        <span class="n">version</span> <span class="o">=</span> <span class="n">version</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact_version</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">version</span>
 </span><span id="Endpoint-76"><a href="#Endpoint-76"><span class="linenos"> 76</span></a>
-</span><span id="Endpoint-77"><a href="#Endpoint-77"><span class="linenos"> 77</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">handle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="Endpoint-78"><a href="#Endpoint-78"><span class="linenos"> 78</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle prediction request.</span>
-</span><span id="Endpoint-79"><a href="#Endpoint-79"><span class="linenos"> 79</span></a>
-</span><span id="Endpoint-80"><a href="#Endpoint-80"><span class="linenos"> 80</span></a><span class="sd">        Args:</span>
-</span><span id="Endpoint-81"><a href="#Endpoint-81"><span class="linenos"> 81</span></a><span class="sd">            request: Input request data.</span>
+</span><span id="Endpoint-77"><a href="#Endpoint-77"><span class="linenos"> 77</span></a>        <span class="n">store</span> <span class="o">=</span> <span class="n">ArtifactStore</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">project</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
+</span><span id="Endpoint-78"><a href="#Endpoint-78"><span class="linenos"> 78</span></a>
+</span><span id="Endpoint-79"><a href="#Endpoint-79"><span class="linenos"> 79</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="p">()</span>
+</span><span id="Endpoint-80"><a href="#Endpoint-80"><span class="linenos"> 80</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+</span><span id="Endpoint-81"><a href="#Endpoint-81"><span class="linenos"> 81</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span> <span class="o">=</span> <span class="kc">True</span>
 </span><span id="Endpoint-82"><a href="#Endpoint-82"><span class="linenos"> 82</span></a>
-</span><span id="Endpoint-83"><a href="#Endpoint-83"><span class="linenos"> 83</span></a><span class="sd">        Returns:</span>
-</span><span id="Endpoint-84"><a href="#Endpoint-84"><span class="linenos"> 84</span></a><span class="sd">            Response dictionary.</span>
-</span><span id="Endpoint-85"><a href="#Endpoint-85"><span class="linenos"> 85</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Endpoint-86"><a href="#Endpoint-86"><span class="linenos"> 86</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span><span class="p">:</span>
-</span><span id="Endpoint-87"><a href="#Endpoint-87"><span class="linenos"> 87</span></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Endpoint not initialized. Call initialize() first.&quot;</span><span class="p">)</span>
+</span><span id="Endpoint-83"><a href="#Endpoint-83"><span class="linenos"> 83</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">handle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span id="Endpoint-84"><a href="#Endpoint-84"><span class="linenos"> 84</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle prediction request.</span>
+</span><span id="Endpoint-85"><a href="#Endpoint-85"><span class="linenos"> 85</span></a>
+</span><span id="Endpoint-86"><a href="#Endpoint-86"><span class="linenos"> 86</span></a><span class="sd">        Args:</span>
+</span><span id="Endpoint-87"><a href="#Endpoint-87"><span class="linenos"> 87</span></a><span class="sd">            request: Input request data.</span>
 </span><span id="Endpoint-88"><a href="#Endpoint-88"><span class="linenos"> 88</span></a>
-</span><span id="Endpoint-89"><a href="#Endpoint-89"><span class="linenos"> 89</span></a>        <span class="c1"># Preprocess</span>
-</span><span id="Endpoint-90"><a href="#Endpoint-90"><span class="linenos"> 90</span></a>        <span class="n">features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
-</span><span id="Endpoint-91"><a href="#Endpoint-91"><span class="linenos"> 91</span></a>
-</span><span id="Endpoint-92"><a href="#Endpoint-92"><span class="linenos"> 92</span></a>        <span class="c1"># Predict</span>
-</span><span id="Endpoint-93"><a href="#Endpoint-93"><span class="linenos"> 93</span></a>        <span class="n">prediction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+</span><span id="Endpoint-89"><a href="#Endpoint-89"><span class="linenos"> 89</span></a><span class="sd">        Returns:</span>
+</span><span id="Endpoint-90"><a href="#Endpoint-90"><span class="linenos"> 90</span></a><span class="sd">            Response dictionary.</span>
+</span><span id="Endpoint-91"><a href="#Endpoint-91"><span class="linenos"> 91</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Endpoint-92"><a href="#Endpoint-92"><span class="linenos"> 92</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span><span class="p">:</span>
+</span><span id="Endpoint-93"><a href="#Endpoint-93"><span class="linenos"> 93</span></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Endpoint not initialized. Call initialize() first.&quot;</span><span class="p">)</span>
 </span><span id="Endpoint-94"><a href="#Endpoint-94"><span class="linenos"> 94</span></a>
-</span><span id="Endpoint-95"><a href="#Endpoint-95"><span class="linenos"> 95</span></a>        <span class="c1"># Postprocess</span>
-</span><span id="Endpoint-96"><a href="#Endpoint-96"><span class="linenos"> 96</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">postprocess</span><span class="p">(</span><span class="n">prediction</span><span class="p">)</span>
+</span><span id="Endpoint-95"><a href="#Endpoint-95"><span class="linenos"> 95</span></a>        <span class="c1"># Preprocess</span>
+</span><span id="Endpoint-96"><a href="#Endpoint-96"><span class="linenos"> 96</span></a>        <span class="n">features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
 </span><span id="Endpoint-97"><a href="#Endpoint-97"><span class="linenos"> 97</span></a>
-</span><span id="Endpoint-98"><a href="#Endpoint-98"><span class="linenos"> 98</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="Endpoint-99"><a href="#Endpoint-99"><span class="linenos"> 99</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">preprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span><span id="Endpoint-100"><a href="#Endpoint-100"><span class="linenos">100</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Preprocess request data.</span>
-</span><span id="Endpoint-101"><a href="#Endpoint-101"><span class="linenos">101</span></a>
-</span><span id="Endpoint-102"><a href="#Endpoint-102"><span class="linenos">102</span></a><span class="sd">        Args:</span>
-</span><span id="Endpoint-103"><a href="#Endpoint-103"><span class="linenos">103</span></a><span class="sd">            request: Raw request data.</span>
-</span><span id="Endpoint-104"><a href="#Endpoint-104"><span class="linenos">104</span></a>
-</span><span id="Endpoint-105"><a href="#Endpoint-105"><span class="linenos">105</span></a><span class="sd">        Returns:</span>
-</span><span id="Endpoint-106"><a href="#Endpoint-106"><span class="linenos">106</span></a><span class="sd">            Preprocessed features for model.</span>
-</span><span id="Endpoint-107"><a href="#Endpoint-107"><span class="linenos">107</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Endpoint-108"><a href="#Endpoint-108"><span class="linenos">108</span></a>        <span class="k">pass</span>
-</span><span id="Endpoint-109"><a href="#Endpoint-109"><span class="linenos">109</span></a>
-</span><span id="Endpoint-110"><a href="#Endpoint-110"><span class="linenos">110</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="Endpoint-111"><a href="#Endpoint-111"><span class="linenos">111</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">postprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="Endpoint-112"><a href="#Endpoint-112"><span class="linenos">112</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Postprocess model prediction.</span>
-</span><span id="Endpoint-113"><a href="#Endpoint-113"><span class="linenos">113</span></a>
-</span><span id="Endpoint-114"><a href="#Endpoint-114"><span class="linenos">114</span></a><span class="sd">        Args:</span>
-</span><span id="Endpoint-115"><a href="#Endpoint-115"><span class="linenos">115</span></a><span class="sd">            prediction: Raw model output.</span>
-</span><span id="Endpoint-116"><a href="#Endpoint-116"><span class="linenos">116</span></a>
-</span><span id="Endpoint-117"><a href="#Endpoint-117"><span class="linenos">117</span></a><span class="sd">        Returns:</span>
-</span><span id="Endpoint-118"><a href="#Endpoint-118"><span class="linenos">118</span></a><span class="sd">            Response dictionary.</span>
-</span><span id="Endpoint-119"><a href="#Endpoint-119"><span class="linenos">119</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Endpoint-120"><a href="#Endpoint-120"><span class="linenos">120</span></a>        <span class="k">pass</span>
-</span><span id="Endpoint-121"><a href="#Endpoint-121"><span class="linenos">121</span></a>
-</span><span id="Endpoint-122"><a href="#Endpoint-122"><span class="linenos">122</span></a>    <span class="nd">@property</span>
-</span><span id="Endpoint-123"><a href="#Endpoint-123"><span class="linenos">123</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_initialized</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="Endpoint-124"><a href="#Endpoint-124"><span class="linenos">124</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if endpoint is initialized.&quot;&quot;&quot;</span>
-</span><span id="Endpoint-125"><a href="#Endpoint-125"><span class="linenos">125</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span>
-</span><span id="Endpoint-126"><a href="#Endpoint-126"><span class="linenos">126</span></a>
-</span><span id="Endpoint-127"><a href="#Endpoint-127"><span class="linenos">127</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="Endpoint-128"><a href="#Endpoint-128"><span class="linenos">128</span></a>        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;initialized&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span> <span class="k">else</span> <span class="s2">&quot;not initialized&quot;</span>
-</span><span id="Endpoint-129"><a href="#Endpoint-129"><span class="linenos">129</span></a>        <span class="n">model_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span> <span class="k">else</span> <span class="s2">&quot;None&quot;</span>
-</span><span id="Endpoint-130"><a href="#Endpoint-130"><span class="linenos">130</span></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(model=</span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span id="Endpoint-98"><a href="#Endpoint-98"><span class="linenos"> 98</span></a>        <span class="c1"># Predict</span>
+</span><span id="Endpoint-99"><a href="#Endpoint-99"><span class="linenos"> 99</span></a>        <span class="n">prediction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+</span><span id="Endpoint-100"><a href="#Endpoint-100"><span class="linenos">100</span></a>
+</span><span id="Endpoint-101"><a href="#Endpoint-101"><span class="linenos">101</span></a>        <span class="c1"># Postprocess</span>
+</span><span id="Endpoint-102"><a href="#Endpoint-102"><span class="linenos">102</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">postprocess</span><span class="p">(</span><span class="n">prediction</span><span class="p">)</span>
+</span><span id="Endpoint-103"><a href="#Endpoint-103"><span class="linenos">103</span></a>
+</span><span id="Endpoint-104"><a href="#Endpoint-104"><span class="linenos">104</span></a>    <span class="nd">@abstractmethod</span>
+</span><span id="Endpoint-105"><a href="#Endpoint-105"><span class="linenos">105</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">preprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span id="Endpoint-106"><a href="#Endpoint-106"><span class="linenos">106</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Preprocess request data.</span>
+</span><span id="Endpoint-107"><a href="#Endpoint-107"><span class="linenos">107</span></a>
+</span><span id="Endpoint-108"><a href="#Endpoint-108"><span class="linenos">108</span></a><span class="sd">        Args:</span>
+</span><span id="Endpoint-109"><a href="#Endpoint-109"><span class="linenos">109</span></a><span class="sd">            request: Raw request data.</span>
+</span><span id="Endpoint-110"><a href="#Endpoint-110"><span class="linenos">110</span></a>
+</span><span id="Endpoint-111"><a href="#Endpoint-111"><span class="linenos">111</span></a><span class="sd">        Returns:</span>
+</span><span id="Endpoint-112"><a href="#Endpoint-112"><span class="linenos">112</span></a><span class="sd">            Preprocessed features for model.</span>
+</span><span id="Endpoint-113"><a href="#Endpoint-113"><span class="linenos">113</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Endpoint-114"><a href="#Endpoint-114"><span class="linenos">114</span></a>        <span class="k">pass</span>
+</span><span id="Endpoint-115"><a href="#Endpoint-115"><span class="linenos">115</span></a>
+</span><span id="Endpoint-116"><a href="#Endpoint-116"><span class="linenos">116</span></a>    <span class="nd">@abstractmethod</span>
+</span><span id="Endpoint-117"><a href="#Endpoint-117"><span class="linenos">117</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">postprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span id="Endpoint-118"><a href="#Endpoint-118"><span class="linenos">118</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Postprocess model prediction.</span>
+</span><span id="Endpoint-119"><a href="#Endpoint-119"><span class="linenos">119</span></a>
+</span><span id="Endpoint-120"><a href="#Endpoint-120"><span class="linenos">120</span></a><span class="sd">        Args:</span>
+</span><span id="Endpoint-121"><a href="#Endpoint-121"><span class="linenos">121</span></a><span class="sd">            prediction: Raw model output.</span>
+</span><span id="Endpoint-122"><a href="#Endpoint-122"><span class="linenos">122</span></a>
+</span><span id="Endpoint-123"><a href="#Endpoint-123"><span class="linenos">123</span></a><span class="sd">        Returns:</span>
+</span><span id="Endpoint-124"><a href="#Endpoint-124"><span class="linenos">124</span></a><span class="sd">            Response dictionary.</span>
+</span><span id="Endpoint-125"><a href="#Endpoint-125"><span class="linenos">125</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Endpoint-126"><a href="#Endpoint-126"><span class="linenos">126</span></a>        <span class="k">pass</span>
+</span><span id="Endpoint-127"><a href="#Endpoint-127"><span class="linenos">127</span></a>
+</span><span id="Endpoint-128"><a href="#Endpoint-128"><span class="linenos">128</span></a>    <span class="nd">@property</span>
+</span><span id="Endpoint-129"><a href="#Endpoint-129"><span class="linenos">129</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_initialized</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="Endpoint-130"><a href="#Endpoint-130"><span class="linenos">130</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if endpoint is initialized.&quot;&quot;&quot;</span>
+</span><span id="Endpoint-131"><a href="#Endpoint-131"><span class="linenos">131</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span>
+</span><span id="Endpoint-132"><a href="#Endpoint-132"><span class="linenos">132</span></a>
+</span><span id="Endpoint-133"><a href="#Endpoint-133"><span class="linenos">133</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="Endpoint-134"><a href="#Endpoint-134"><span class="linenos">134</span></a>        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;initialized&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span> <span class="k">else</span> <span class="s2">&quot;not initialized&quot;</span>
+</span><span id="Endpoint-135"><a href="#Endpoint-135"><span class="linenos">135</span></a>        <span class="n">model_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span> <span class="k">else</span> <span class="s2">&quot;None&quot;</span>
+</span><span id="Endpoint-136"><a href="#Endpoint-136"><span class="linenos">136</span></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(model=</span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">)&quot;</span>
 </span></pre></div>
 
 
@@ -267,9 +275,10 @@ and model inference.</p>
 <p>Provides a standardized interface for pre/post processing
 with automatic model and feature loading.</p>
 
-<p>Example:</p>
+<h6 id="example">Example:</h6>
 
-<pre><code><div class="pdoc-code codehilite">
+<blockquote>
+  <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn"><a href="">geronimo.serving</a></span><span class="w"> </span><span class="kn">import</span> <span class="n">Endpoint</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">myproject.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">CreditRiskModel</span>
 
@@ -294,8 +303,8 @@ with automatic model and feature loading.</p>
 <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">endpoint</span><span class="o">.</span><span class="n">handle</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
 </code></pre>
-</div>
-</code></pre>
+  </div>
+</blockquote>
 </div>
 
 
@@ -309,10 +318,10 @@ with automatic model and feature loading.</p>
 
     </div>
     <a class="headerlink" href="#Endpoint.__init__"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.__init__-50"><a href="#Endpoint.__init__-50"><span class="linenos">50</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="Endpoint.__init__-51"><a href="#Endpoint.__init__-51"><span class="linenos">51</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize endpoint.&quot;&quot;&quot;</span>
-</span><span id="Endpoint.__init__-52"><a href="#Endpoint.__init__-52"><span class="linenos">52</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="Endpoint.__init__-53"><a href="#Endpoint.__init__-53"><span class="linenos">53</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.__init__-56"><a href="#Endpoint.__init__-56"><span class="linenos">56</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="Endpoint.__init__-57"><a href="#Endpoint.__init__-57"><span class="linenos">57</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize endpoint.&quot;&quot;&quot;</span>
+</span><span id="Endpoint.__init__-58"><a href="#Endpoint.__init__-58"><span class="linenos">58</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="Endpoint.__init__-59"><a href="#Endpoint.__init__-59"><span class="linenos">59</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 </span></pre></div>
 
 
@@ -365,7 +374,9 @@ with automatic model and feature loading.</p>
     </div>
     <a class="headerlink" href="#Endpoint.model"></a>
     
-    
+            <div class="docstring"><p>The loaded model instance.</p>
+</div>
+
 
                             </div>
                             <div id="Endpoint.initialize" class="classattr">
@@ -379,35 +390,38 @@ with automatic model and feature loading.</p>
 
     </div>
     <a class="headerlink" href="#Endpoint.initialize"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.initialize-55"><a href="#Endpoint.initialize-55"><span class="linenos">55</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span>
-</span><span id="Endpoint.initialize-56"><a href="#Endpoint.initialize-56"><span class="linenos">56</span></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="Endpoint.initialize-57"><a href="#Endpoint.initialize-57"><span class="linenos">57</span></a>        <span class="n">project</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="Endpoint.initialize-58"><a href="#Endpoint.initialize-58"><span class="linenos">58</span></a>        <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="Endpoint.initialize-59"><a href="#Endpoint.initialize-59"><span class="linenos">59</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="Endpoint.initialize-60"><a href="#Endpoint.initialize-60"><span class="linenos">60</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize endpoint by loading model artifacts.</span>
-</span><span id="Endpoint.initialize-61"><a href="#Endpoint.initialize-61"><span class="linenos">61</span></a>
-</span><span id="Endpoint.initialize-62"><a href="#Endpoint.initialize-62"><span class="linenos">62</span></a><span class="sd">        Args:</span>
-</span><span id="Endpoint.initialize-63"><a href="#Endpoint.initialize-63"><span class="linenos">63</span></a><span class="sd">            project: Artifact project name.</span>
-</span><span id="Endpoint.initialize-64"><a href="#Endpoint.initialize-64"><span class="linenos">64</span></a><span class="sd">            version: Artifact version.</span>
-</span><span id="Endpoint.initialize-65"><a href="#Endpoint.initialize-65"><span class="linenos">65</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Endpoint.initialize-66"><a href="#Endpoint.initialize-66"><span class="linenos">66</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">geronimo.artifacts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArtifactStore</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.initialize-61"><a href="#Endpoint.initialize-61"><span class="linenos">61</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span>
+</span><span id="Endpoint.initialize-62"><a href="#Endpoint.initialize-62"><span class="linenos">62</span></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="Endpoint.initialize-63"><a href="#Endpoint.initialize-63"><span class="linenos">63</span></a>        <span class="n">project</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="Endpoint.initialize-64"><a href="#Endpoint.initialize-64"><span class="linenos">64</span></a>        <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="Endpoint.initialize-65"><a href="#Endpoint.initialize-65"><span class="linenos">65</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="Endpoint.initialize-66"><a href="#Endpoint.initialize-66"><span class="linenos">66</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize endpoint by loading model artifacts.</span>
 </span><span id="Endpoint.initialize-67"><a href="#Endpoint.initialize-67"><span class="linenos">67</span></a>
-</span><span id="Endpoint.initialize-68"><a href="#Endpoint.initialize-68"><span class="linenos">68</span></a>        <span class="n">project</span> <span class="o">=</span> <span class="n">project</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact_project</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">name</span>
-</span><span id="Endpoint.initialize-69"><a href="#Endpoint.initialize-69"><span class="linenos">69</span></a>        <span class="n">version</span> <span class="o">=</span> <span class="n">version</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact_version</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">version</span>
-</span><span id="Endpoint.initialize-70"><a href="#Endpoint.initialize-70"><span class="linenos">70</span></a>
-</span><span id="Endpoint.initialize-71"><a href="#Endpoint.initialize-71"><span class="linenos">71</span></a>        <span class="n">store</span> <span class="o">=</span> <span class="n">ArtifactStore</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">project</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
-</span><span id="Endpoint.initialize-72"><a href="#Endpoint.initialize-72"><span class="linenos">72</span></a>
-</span><span id="Endpoint.initialize-73"><a href="#Endpoint.initialize-73"><span class="linenos">73</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="p">()</span>
-</span><span id="Endpoint.initialize-74"><a href="#Endpoint.initialize-74"><span class="linenos">74</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
-</span><span id="Endpoint.initialize-75"><a href="#Endpoint.initialize-75"><span class="linenos">75</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="Endpoint.initialize-68"><a href="#Endpoint.initialize-68"><span class="linenos">68</span></a><span class="sd">        Args:</span>
+</span><span id="Endpoint.initialize-69"><a href="#Endpoint.initialize-69"><span class="linenos">69</span></a><span class="sd">            project: Artifact project name.</span>
+</span><span id="Endpoint.initialize-70"><a href="#Endpoint.initialize-70"><span class="linenos">70</span></a><span class="sd">            version: Artifact version.</span>
+</span><span id="Endpoint.initialize-71"><a href="#Endpoint.initialize-71"><span class="linenos">71</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Endpoint.initialize-72"><a href="#Endpoint.initialize-72"><span class="linenos">72</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">geronimo.artifacts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArtifactStore</span>
+</span><span id="Endpoint.initialize-73"><a href="#Endpoint.initialize-73"><span class="linenos">73</span></a>
+</span><span id="Endpoint.initialize-74"><a href="#Endpoint.initialize-74"><span class="linenos">74</span></a>        <span class="n">project</span> <span class="o">=</span> <span class="n">project</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact_project</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">name</span>
+</span><span id="Endpoint.initialize-75"><a href="#Endpoint.initialize-75"><span class="linenos">75</span></a>        <span class="n">version</span> <span class="o">=</span> <span class="n">version</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact_version</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">version</span>
+</span><span id="Endpoint.initialize-76"><a href="#Endpoint.initialize-76"><span class="linenos">76</span></a>
+</span><span id="Endpoint.initialize-77"><a href="#Endpoint.initialize-77"><span class="linenos">77</span></a>        <span class="n">store</span> <span class="o">=</span> <span class="n">ArtifactStore</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">project</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
+</span><span id="Endpoint.initialize-78"><a href="#Endpoint.initialize-78"><span class="linenos">78</span></a>
+</span><span id="Endpoint.initialize-79"><a href="#Endpoint.initialize-79"><span class="linenos">79</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="p">()</span>
+</span><span id="Endpoint.initialize-80"><a href="#Endpoint.initialize-80"><span class="linenos">80</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+</span><span id="Endpoint.initialize-81"><a href="#Endpoint.initialize-81"><span class="linenos">81</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span> <span class="o">=</span> <span class="kc">True</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Initialize endpoint by loading model artifacts.</p>
 
-<p>Args:
-    project: Artifact project name.
-    version: Artifact version.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>project:</strong>  Artifact project name.</li>
+<li><strong>version:</strong>  Artifact version.</li>
+</ul>
 </div>
 
 
@@ -423,36 +437,42 @@ with automatic model and feature loading.</p>
 
     </div>
     <a class="headerlink" href="#Endpoint.handle"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.handle-77"><a href="#Endpoint.handle-77"><span class="linenos">77</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">handle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="Endpoint.handle-78"><a href="#Endpoint.handle-78"><span class="linenos">78</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle prediction request.</span>
-</span><span id="Endpoint.handle-79"><a href="#Endpoint.handle-79"><span class="linenos">79</span></a>
-</span><span id="Endpoint.handle-80"><a href="#Endpoint.handle-80"><span class="linenos">80</span></a><span class="sd">        Args:</span>
-</span><span id="Endpoint.handle-81"><a href="#Endpoint.handle-81"><span class="linenos">81</span></a><span class="sd">            request: Input request data.</span>
-</span><span id="Endpoint.handle-82"><a href="#Endpoint.handle-82"><span class="linenos">82</span></a>
-</span><span id="Endpoint.handle-83"><a href="#Endpoint.handle-83"><span class="linenos">83</span></a><span class="sd">        Returns:</span>
-</span><span id="Endpoint.handle-84"><a href="#Endpoint.handle-84"><span class="linenos">84</span></a><span class="sd">            Response dictionary.</span>
-</span><span id="Endpoint.handle-85"><a href="#Endpoint.handle-85"><span class="linenos">85</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Endpoint.handle-86"><a href="#Endpoint.handle-86"><span class="linenos">86</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span><span class="p">:</span>
-</span><span id="Endpoint.handle-87"><a href="#Endpoint.handle-87"><span class="linenos">87</span></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Endpoint not initialized. Call initialize() first.&quot;</span><span class="p">)</span>
-</span><span id="Endpoint.handle-88"><a href="#Endpoint.handle-88"><span class="linenos">88</span></a>
-</span><span id="Endpoint.handle-89"><a href="#Endpoint.handle-89"><span class="linenos">89</span></a>        <span class="c1"># Preprocess</span>
-</span><span id="Endpoint.handle-90"><a href="#Endpoint.handle-90"><span class="linenos">90</span></a>        <span class="n">features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
-</span><span id="Endpoint.handle-91"><a href="#Endpoint.handle-91"><span class="linenos">91</span></a>
-</span><span id="Endpoint.handle-92"><a href="#Endpoint.handle-92"><span class="linenos">92</span></a>        <span class="c1"># Predict</span>
-</span><span id="Endpoint.handle-93"><a href="#Endpoint.handle-93"><span class="linenos">93</span></a>        <span class="n">prediction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
-</span><span id="Endpoint.handle-94"><a href="#Endpoint.handle-94"><span class="linenos">94</span></a>
-</span><span id="Endpoint.handle-95"><a href="#Endpoint.handle-95"><span class="linenos">95</span></a>        <span class="c1"># Postprocess</span>
-</span><span id="Endpoint.handle-96"><a href="#Endpoint.handle-96"><span class="linenos">96</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">postprocess</span><span class="p">(</span><span class="n">prediction</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.handle-83"><a href="#Endpoint.handle-83"><span class="linenos"> 83</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">handle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span id="Endpoint.handle-84"><a href="#Endpoint.handle-84"><span class="linenos"> 84</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle prediction request.</span>
+</span><span id="Endpoint.handle-85"><a href="#Endpoint.handle-85"><span class="linenos"> 85</span></a>
+</span><span id="Endpoint.handle-86"><a href="#Endpoint.handle-86"><span class="linenos"> 86</span></a><span class="sd">        Args:</span>
+</span><span id="Endpoint.handle-87"><a href="#Endpoint.handle-87"><span class="linenos"> 87</span></a><span class="sd">            request: Input request data.</span>
+</span><span id="Endpoint.handle-88"><a href="#Endpoint.handle-88"><span class="linenos"> 88</span></a>
+</span><span id="Endpoint.handle-89"><a href="#Endpoint.handle-89"><span class="linenos"> 89</span></a><span class="sd">        Returns:</span>
+</span><span id="Endpoint.handle-90"><a href="#Endpoint.handle-90"><span class="linenos"> 90</span></a><span class="sd">            Response dictionary.</span>
+</span><span id="Endpoint.handle-91"><a href="#Endpoint.handle-91"><span class="linenos"> 91</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Endpoint.handle-92"><a href="#Endpoint.handle-92"><span class="linenos"> 92</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span><span class="p">:</span>
+</span><span id="Endpoint.handle-93"><a href="#Endpoint.handle-93"><span class="linenos"> 93</span></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Endpoint not initialized. Call initialize() first.&quot;</span><span class="p">)</span>
+</span><span id="Endpoint.handle-94"><a href="#Endpoint.handle-94"><span class="linenos"> 94</span></a>
+</span><span id="Endpoint.handle-95"><a href="#Endpoint.handle-95"><span class="linenos"> 95</span></a>        <span class="c1"># Preprocess</span>
+</span><span id="Endpoint.handle-96"><a href="#Endpoint.handle-96"><span class="linenos"> 96</span></a>        <span class="n">features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+</span><span id="Endpoint.handle-97"><a href="#Endpoint.handle-97"><span class="linenos"> 97</span></a>
+</span><span id="Endpoint.handle-98"><a href="#Endpoint.handle-98"><span class="linenos"> 98</span></a>        <span class="c1"># Predict</span>
+</span><span id="Endpoint.handle-99"><a href="#Endpoint.handle-99"><span class="linenos"> 99</span></a>        <span class="n">prediction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+</span><span id="Endpoint.handle-100"><a href="#Endpoint.handle-100"><span class="linenos">100</span></a>
+</span><span id="Endpoint.handle-101"><a href="#Endpoint.handle-101"><span class="linenos">101</span></a>        <span class="c1"># Postprocess</span>
+</span><span id="Endpoint.handle-102"><a href="#Endpoint.handle-102"><span class="linenos">102</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">postprocess</span><span class="p">(</span><span class="n">prediction</span><span class="p">)</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Handle prediction request.</p>
 
-<p>Args:
-    request: Input request data.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Response dictionary.</p>
+<ul>
+<li><strong>request:</strong>  Input request data.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Response dictionary.</p>
+</blockquote>
 </div>
 
 
@@ -469,27 +489,33 @@ with automatic model and feature loading.</p>
 
     </div>
     <a class="headerlink" href="#Endpoint.preprocess"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.preprocess-98"><a href="#Endpoint.preprocess-98"><span class="linenos"> 98</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="Endpoint.preprocess-99"><a href="#Endpoint.preprocess-99"><span class="linenos"> 99</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">preprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span><span id="Endpoint.preprocess-100"><a href="#Endpoint.preprocess-100"><span class="linenos">100</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Preprocess request data.</span>
-</span><span id="Endpoint.preprocess-101"><a href="#Endpoint.preprocess-101"><span class="linenos">101</span></a>
-</span><span id="Endpoint.preprocess-102"><a href="#Endpoint.preprocess-102"><span class="linenos">102</span></a><span class="sd">        Args:</span>
-</span><span id="Endpoint.preprocess-103"><a href="#Endpoint.preprocess-103"><span class="linenos">103</span></a><span class="sd">            request: Raw request data.</span>
-</span><span id="Endpoint.preprocess-104"><a href="#Endpoint.preprocess-104"><span class="linenos">104</span></a>
-</span><span id="Endpoint.preprocess-105"><a href="#Endpoint.preprocess-105"><span class="linenos">105</span></a><span class="sd">        Returns:</span>
-</span><span id="Endpoint.preprocess-106"><a href="#Endpoint.preprocess-106"><span class="linenos">106</span></a><span class="sd">            Preprocessed features for model.</span>
-</span><span id="Endpoint.preprocess-107"><a href="#Endpoint.preprocess-107"><span class="linenos">107</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Endpoint.preprocess-108"><a href="#Endpoint.preprocess-108"><span class="linenos">108</span></a>        <span class="k">pass</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.preprocess-104"><a href="#Endpoint.preprocess-104"><span class="linenos">104</span></a>    <span class="nd">@abstractmethod</span>
+</span><span id="Endpoint.preprocess-105"><a href="#Endpoint.preprocess-105"><span class="linenos">105</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">preprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span id="Endpoint.preprocess-106"><a href="#Endpoint.preprocess-106"><span class="linenos">106</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Preprocess request data.</span>
+</span><span id="Endpoint.preprocess-107"><a href="#Endpoint.preprocess-107"><span class="linenos">107</span></a>
+</span><span id="Endpoint.preprocess-108"><a href="#Endpoint.preprocess-108"><span class="linenos">108</span></a><span class="sd">        Args:</span>
+</span><span id="Endpoint.preprocess-109"><a href="#Endpoint.preprocess-109"><span class="linenos">109</span></a><span class="sd">            request: Raw request data.</span>
+</span><span id="Endpoint.preprocess-110"><a href="#Endpoint.preprocess-110"><span class="linenos">110</span></a>
+</span><span id="Endpoint.preprocess-111"><a href="#Endpoint.preprocess-111"><span class="linenos">111</span></a><span class="sd">        Returns:</span>
+</span><span id="Endpoint.preprocess-112"><a href="#Endpoint.preprocess-112"><span class="linenos">112</span></a><span class="sd">            Preprocessed features for model.</span>
+</span><span id="Endpoint.preprocess-113"><a href="#Endpoint.preprocess-113"><span class="linenos">113</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Endpoint.preprocess-114"><a href="#Endpoint.preprocess-114"><span class="linenos">114</span></a>        <span class="k">pass</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Preprocess request data.</p>
 
-<p>Args:
-    request: Raw request data.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Preprocessed features for model.</p>
+<ul>
+<li><strong>request:</strong>  Raw request data.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Preprocessed features for model.</p>
+</blockquote>
 </div>
 
 
@@ -506,27 +532,33 @@ with automatic model and feature loading.</p>
 
     </div>
     <a class="headerlink" href="#Endpoint.postprocess"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.postprocess-110"><a href="#Endpoint.postprocess-110"><span class="linenos">110</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="Endpoint.postprocess-111"><a href="#Endpoint.postprocess-111"><span class="linenos">111</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">postprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="Endpoint.postprocess-112"><a href="#Endpoint.postprocess-112"><span class="linenos">112</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Postprocess model prediction.</span>
-</span><span id="Endpoint.postprocess-113"><a href="#Endpoint.postprocess-113"><span class="linenos">113</span></a>
-</span><span id="Endpoint.postprocess-114"><a href="#Endpoint.postprocess-114"><span class="linenos">114</span></a><span class="sd">        Args:</span>
-</span><span id="Endpoint.postprocess-115"><a href="#Endpoint.postprocess-115"><span class="linenos">115</span></a><span class="sd">            prediction: Raw model output.</span>
-</span><span id="Endpoint.postprocess-116"><a href="#Endpoint.postprocess-116"><span class="linenos">116</span></a>
-</span><span id="Endpoint.postprocess-117"><a href="#Endpoint.postprocess-117"><span class="linenos">117</span></a><span class="sd">        Returns:</span>
-</span><span id="Endpoint.postprocess-118"><a href="#Endpoint.postprocess-118"><span class="linenos">118</span></a><span class="sd">            Response dictionary.</span>
-</span><span id="Endpoint.postprocess-119"><a href="#Endpoint.postprocess-119"><span class="linenos">119</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="Endpoint.postprocess-120"><a href="#Endpoint.postprocess-120"><span class="linenos">120</span></a>        <span class="k">pass</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.postprocess-116"><a href="#Endpoint.postprocess-116"><span class="linenos">116</span></a>    <span class="nd">@abstractmethod</span>
+</span><span id="Endpoint.postprocess-117"><a href="#Endpoint.postprocess-117"><span class="linenos">117</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">postprocess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span id="Endpoint.postprocess-118"><a href="#Endpoint.postprocess-118"><span class="linenos">118</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Postprocess model prediction.</span>
+</span><span id="Endpoint.postprocess-119"><a href="#Endpoint.postprocess-119"><span class="linenos">119</span></a>
+</span><span id="Endpoint.postprocess-120"><a href="#Endpoint.postprocess-120"><span class="linenos">120</span></a><span class="sd">        Args:</span>
+</span><span id="Endpoint.postprocess-121"><a href="#Endpoint.postprocess-121"><span class="linenos">121</span></a><span class="sd">            prediction: Raw model output.</span>
+</span><span id="Endpoint.postprocess-122"><a href="#Endpoint.postprocess-122"><span class="linenos">122</span></a>
+</span><span id="Endpoint.postprocess-123"><a href="#Endpoint.postprocess-123"><span class="linenos">123</span></a><span class="sd">        Returns:</span>
+</span><span id="Endpoint.postprocess-124"><a href="#Endpoint.postprocess-124"><span class="linenos">124</span></a><span class="sd">            Response dictionary.</span>
+</span><span id="Endpoint.postprocess-125"><a href="#Endpoint.postprocess-125"><span class="linenos">125</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="Endpoint.postprocess-126"><a href="#Endpoint.postprocess-126"><span class="linenos">126</span></a>        <span class="k">pass</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Postprocess model prediction.</p>
 
-<p>Args:
-    prediction: Raw model output.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Response dictionary.</p>
+<ul>
+<li><strong>prediction:</strong>  Raw model output.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Response dictionary.</p>
+</blockquote>
 </div>
 
 
@@ -540,10 +572,10 @@ with automatic model and feature loading.</p>
 
     </div>
     <a class="headerlink" href="#Endpoint.is_initialized"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.is_initialized-122"><a href="#Endpoint.is_initialized-122"><span class="linenos">122</span></a>    <span class="nd">@property</span>
-</span><span id="Endpoint.is_initialized-123"><a href="#Endpoint.is_initialized-123"><span class="linenos">123</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_initialized</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="Endpoint.is_initialized-124"><a href="#Endpoint.is_initialized-124"><span class="linenos">124</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if endpoint is initialized.&quot;&quot;&quot;</span>
-</span><span id="Endpoint.is_initialized-125"><a href="#Endpoint.is_initialized-125"><span class="linenos">125</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="Endpoint.is_initialized-128"><a href="#Endpoint.is_initialized-128"><span class="linenos">128</span></a>    <span class="nd">@property</span>
+</span><span id="Endpoint.is_initialized-129"><a href="#Endpoint.is_initialized-129"><span class="linenos">129</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_initialized</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="Endpoint.is_initialized-130"><a href="#Endpoint.is_initialized-130"><span class="linenos">130</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if endpoint is initialized.&quot;&quot;&quot;</span>
+</span><span id="Endpoint.is_initialized-131"><a href="#Endpoint.is_initialized-131"><span class="linenos">131</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_initialized</span>
 </span></pre></div>
 
 

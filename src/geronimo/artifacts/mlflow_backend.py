@@ -30,6 +30,21 @@ class MLFlowArtifactBackend(ArtifactBackend):
     tracks experiments/runs for versioning.
     """
 
+    project: str
+    """The project name."""
+
+    version: str
+    """The version string."""
+
+    experiment_name: str
+    """The MLflow experiment name."""
+
+    _experiment_id: str
+    """The internal MLflow experiment ID."""
+
+    _run_id: Optional[str]
+    """The internal MLflow run ID."""
+    
     def __init__(
         self,
         project: str,

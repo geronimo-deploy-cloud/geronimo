@@ -18,6 +18,18 @@ class S3ArtifactBackend(ArtifactBackend):
     
     Stores artifacts as pickle files in S3 with JSON metadata index.
     """
+
+    project: str
+    """The project name."""
+
+    version: str
+    """The version string."""
+
+    bucket: str
+    """The S3 bucket name."""
+
+    _prefix: str
+    """The S3 key prefix for this project version."""
     
     def __init__(
         self,

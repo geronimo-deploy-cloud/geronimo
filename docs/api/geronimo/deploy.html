@@ -203,6 +203,8 @@ Pulumi's Automation API to programmatically manage cloud resources.</p>
 </span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a>    <span class="s2">&quot;DeploymentInfo&quot;</span><span class="p">,</span>
 </span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a>    <span class="s2">&quot;DeploymentStatus&quot;</span><span class="p">,</span>
 </span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a><span class="p">]</span>
+</span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a>
+</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a><span class="n">__docformat__</span> <span class="o">=</span> <span class="s2">&quot;google&quot;</span>
 </span></pre></div>
 
 
@@ -246,12 +248,15 @@ Pulumi's Automation API to programmatically manage cloud resources.</p>
 
             <div class="docstring"><p>Complete deployment configuration.</p>
 
-<p>Example:
-    config = DeploymentConfig(
-        project="iris-classifier",
-        target="aws",
-        region="us-west-2",
-    )</p>
+<h6 id="example">Example:</h6>
+
+<blockquote>
+  <p>config = DeploymentConfig(
+      project="iris-classifier",
+      target="aws",
+      region="us-west-2",
+  )</p>
+</blockquote>
 </div>
 
 
@@ -401,16 +406,25 @@ Pulumi's Automation API to programmatically manage cloud resources.</p>
 
             <div class="docstring"><p>Deploy infrastructure using Pulumi.</p>
 
-<p>Args:
-    config: Deployment configuration
-    component: Optional component to deploy (artifacts, serving, batch)
-               If None, deploys all configured components</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Dict with deployment outputs (URLs, resource IDs, etc.)</p>
+<ul>
+<li><strong>config:</strong>  Deployment configuration</li>
+<li><strong>component:</strong>  Optional component to deploy (artifacts, serving, batch)
+If None, deploys all configured components</li>
+</ul>
 
-<p>Raises:
-    PulumiNotInstalledError: If Pulumi is not installed</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Dict with deployment outputs (URLs, resource IDs, etc.)</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>PulumiNotInstalledError:</strong>  If Pulumi is not installed</li>
+</ul>
 </div>
 
 
@@ -462,14 +476,23 @@ Pulumi's Automation API to programmatically manage cloud resources.</p>
 
             <div class="docstring"><p>Destroy deployed infrastructure.</p>
 
-<p>Args:
-    config: Deployment configuration</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Dict with destruction summary</p>
+<ul>
+<li><strong>config:</strong>  Deployment configuration</li>
+</ul>
 
-<p>Raises:
-    PulumiNotInstalledError: If Pulumi is not installed (unless target is cloud)</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Dict with destruction summary</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>PulumiNotInstalledError:</strong>  If Pulumi is not installed (unless target is cloud)</li>
+</ul>
 </div>
 
 
@@ -497,8 +520,11 @@ Pulumi's Automation API to programmatically manage cloud resources.</p>
 
             <div class="docstring"><p>Get list of available deployment targets.</p>
 
-<p>Returns:
-    List of target names (aws, gcp, azure)</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>List of target names (aws, gcp, azure)</p>
+</blockquote>
 </div>
 
 
@@ -604,28 +630,31 @@ Pulumi's Automation API to programmatically manage cloud resources.</p>
 <p>Implement this protocol to deploy Geronimo models to your own
 infrastructure (internal K8s, custom ECS, on-prem servers, etc.).</p>
 
-<p>Example:
-    class InternalK8sTarget(DeploymentTarget):
-        def __init__(self, cluster: str, namespace: str):
-            self.cluster = cluster
-            self.namespace = namespace</p>
+<h6 id="example">Example:</h6>
 
-<pre><code>    def deploy(self, config, artifacts) -&gt; DeploymentInfo:
-        # Use Helm, kubectl, or K8s API
-        return DeploymentInfo(
-            deployment_id=f"{self.namespace}/{config.project}",
-            status=DeploymentStatus.RUNNING,
-            endpoint_url=f"http://{config.project}.{self.namespace}.svc",
-        )
+<blockquote>
+  <p>class InternalK8sTarget(DeploymentTarget):
+      def __init__(self, cluster: str, namespace: str):
+          self.cluster = cluster
+          self.namespace = namespace</p>
 
-    def status(self, deployment_id) -&gt; DeploymentInfo:
-        # Query K8s for pod status
-        ...
+<pre><code>def deploy(self, config, artifacts) -&gt; DeploymentInfo:
+    # Use Helm, kubectl, or K8s API
+    return DeploymentInfo(
+        deployment_id=f"{self.namespace}/{config.project}",
+        status=DeploymentStatus.RUNNING,
+        endpoint_url=f"http://{config.project}.{self.namespace}.svc",
+    )
 
-    def teardown(self, deployment_id) -&gt; None:
-        # Delete K8s resources
-        ...
+def status(self, deployment_id) -&gt; DeploymentInfo:
+    # Query K8s for pod status
+    ...
+
+def teardown(self, deployment_id) -&gt; None:
+    # Delete K8s resources
+    ...
 </code></pre>
+</blockquote>
 
 <p>Usage in geronimo.yaml:
     deployment:
@@ -648,33 +677,33 @@ infrastructure (internal K8s, custom ECS, on-prem servers, etc.).</p>
 
     </div>
     <a class="headerlink" href="#DeploymentTarget.__init__"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="DeploymentTarget.__init__-1941"><a href="#DeploymentTarget.__init__-1941"><span class="linenos">1941</span></a><span class="k">def</span><span class="w"> </span><span class="nf">_no_init_or_replace_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span id="DeploymentTarget.__init__-1942"><a href="#DeploymentTarget.__init__-1942"><span class="linenos">1942</span></a>    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span id="DeploymentTarget.__init__-1943"><a href="#DeploymentTarget.__init__-1943"><span class="linenos">1943</span></a>
-</span><span id="DeploymentTarget.__init__-1944"><a href="#DeploymentTarget.__init__-1944"><span class="linenos">1944</span></a>    <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_is_protocol</span><span class="p">:</span>
-</span><span id="DeploymentTarget.__init__-1945"><a href="#DeploymentTarget.__init__-1945"><span class="linenos">1945</span></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Protocols cannot be instantiated&#39;</span><span class="p">)</span>
-</span><span id="DeploymentTarget.__init__-1946"><a href="#DeploymentTarget.__init__-1946"><span class="linenos">1946</span></a>
-</span><span id="DeploymentTarget.__init__-1947"><a href="#DeploymentTarget.__init__-1947"><span class="linenos">1947</span></a>    <span class="c1"># Already using a custom `__init__`. No need to calculate correct</span>
-</span><span id="DeploymentTarget.__init__-1948"><a href="#DeploymentTarget.__init__-1948"><span class="linenos">1948</span></a>    <span class="c1"># `__init__` to call. This can lead to RecursionError. See bpo-45121.</span>
-</span><span id="DeploymentTarget.__init__-1949"><a href="#DeploymentTarget.__init__-1949"><span class="linenos">1949</span></a>    <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_no_init_or_replace_init</span><span class="p">:</span>
-</span><span id="DeploymentTarget.__init__-1950"><a href="#DeploymentTarget.__init__-1950"><span class="linenos">1950</span></a>        <span class="k">return</span>
-</span><span id="DeploymentTarget.__init__-1951"><a href="#DeploymentTarget.__init__-1951"><span class="linenos">1951</span></a>
-</span><span id="DeploymentTarget.__init__-1952"><a href="#DeploymentTarget.__init__-1952"><span class="linenos">1952</span></a>    <span class="c1"># Initially, `__init__` of a protocol subclass is set to `_no_init_or_replace_init`.</span>
-</span><span id="DeploymentTarget.__init__-1953"><a href="#DeploymentTarget.__init__-1953"><span class="linenos">1953</span></a>    <span class="c1"># The first instantiation of the subclass will call `_no_init_or_replace_init` which</span>
-</span><span id="DeploymentTarget.__init__-1954"><a href="#DeploymentTarget.__init__-1954"><span class="linenos">1954</span></a>    <span class="c1"># searches for a proper new `__init__` in the MRO. The new `__init__`</span>
-</span><span id="DeploymentTarget.__init__-1955"><a href="#DeploymentTarget.__init__-1955"><span class="linenos">1955</span></a>    <span class="c1"># replaces the subclass&#39; old `__init__` (ie `_no_init_or_replace_init`). Subsequent</span>
-</span><span id="DeploymentTarget.__init__-1956"><a href="#DeploymentTarget.__init__-1956"><span class="linenos">1956</span></a>    <span class="c1"># instantiation of the protocol subclass will thus use the new</span>
-</span><span id="DeploymentTarget.__init__-1957"><a href="#DeploymentTarget.__init__-1957"><span class="linenos">1957</span></a>    <span class="c1"># `__init__` and no longer call `_no_init_or_replace_init`.</span>
-</span><span id="DeploymentTarget.__init__-1958"><a href="#DeploymentTarget.__init__-1958"><span class="linenos">1958</span></a>    <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
-</span><span id="DeploymentTarget.__init__-1959"><a href="#DeploymentTarget.__init__-1959"><span class="linenos">1959</span></a>        <span class="n">init</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;__init__&#39;</span><span class="p">,</span> <span class="n">_no_init_or_replace_init</span><span class="p">)</span>
-</span><span id="DeploymentTarget.__init__-1960"><a href="#DeploymentTarget.__init__-1960"><span class="linenos">1960</span></a>        <span class="k">if</span> <span class="n">init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_no_init_or_replace_init</span><span class="p">:</span>
-</span><span id="DeploymentTarget.__init__-1961"><a href="#DeploymentTarget.__init__-1961"><span class="linenos">1961</span></a>            <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="o">=</span> <span class="n">init</span>
-</span><span id="DeploymentTarget.__init__-1962"><a href="#DeploymentTarget.__init__-1962"><span class="linenos">1962</span></a>            <span class="k">break</span>
-</span><span id="DeploymentTarget.__init__-1963"><a href="#DeploymentTarget.__init__-1963"><span class="linenos">1963</span></a>    <span class="k">else</span><span class="p">:</span>
-</span><span id="DeploymentTarget.__init__-1964"><a href="#DeploymentTarget.__init__-1964"><span class="linenos">1964</span></a>        <span class="c1"># should not happen</span>
-</span><span id="DeploymentTarget.__init__-1965"><a href="#DeploymentTarget.__init__-1965"><span class="linenos">1965</span></a>        <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__init__</span>
-</span><span id="DeploymentTarget.__init__-1966"><a href="#DeploymentTarget.__init__-1966"><span class="linenos">1966</span></a>
-</span><span id="DeploymentTarget.__init__-1967"><a href="#DeploymentTarget.__init__-1967"><span class="linenos">1967</span></a>    <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="DeploymentTarget.__init__-1953"><a href="#DeploymentTarget.__init__-1953"><span class="linenos">1953</span></a><span class="k">def</span><span class="w"> </span><span class="nf">_no_init_or_replace_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span id="DeploymentTarget.__init__-1954"><a href="#DeploymentTarget.__init__-1954"><span class="linenos">1954</span></a>    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span id="DeploymentTarget.__init__-1955"><a href="#DeploymentTarget.__init__-1955"><span class="linenos">1955</span></a>
+</span><span id="DeploymentTarget.__init__-1956"><a href="#DeploymentTarget.__init__-1956"><span class="linenos">1956</span></a>    <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_is_protocol</span><span class="p">:</span>
+</span><span id="DeploymentTarget.__init__-1957"><a href="#DeploymentTarget.__init__-1957"><span class="linenos">1957</span></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Protocols cannot be instantiated&#39;</span><span class="p">)</span>
+</span><span id="DeploymentTarget.__init__-1958"><a href="#DeploymentTarget.__init__-1958"><span class="linenos">1958</span></a>
+</span><span id="DeploymentTarget.__init__-1959"><a href="#DeploymentTarget.__init__-1959"><span class="linenos">1959</span></a>    <span class="c1"># Already using a custom `__init__`. No need to calculate correct</span>
+</span><span id="DeploymentTarget.__init__-1960"><a href="#DeploymentTarget.__init__-1960"><span class="linenos">1960</span></a>    <span class="c1"># `__init__` to call. This can lead to RecursionError. See bpo-45121.</span>
+</span><span id="DeploymentTarget.__init__-1961"><a href="#DeploymentTarget.__init__-1961"><span class="linenos">1961</span></a>    <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_no_init_or_replace_init</span><span class="p">:</span>
+</span><span id="DeploymentTarget.__init__-1962"><a href="#DeploymentTarget.__init__-1962"><span class="linenos">1962</span></a>        <span class="k">return</span>
+</span><span id="DeploymentTarget.__init__-1963"><a href="#DeploymentTarget.__init__-1963"><span class="linenos">1963</span></a>
+</span><span id="DeploymentTarget.__init__-1964"><a href="#DeploymentTarget.__init__-1964"><span class="linenos">1964</span></a>    <span class="c1"># Initially, `__init__` of a protocol subclass is set to `_no_init_or_replace_init`.</span>
+</span><span id="DeploymentTarget.__init__-1965"><a href="#DeploymentTarget.__init__-1965"><span class="linenos">1965</span></a>    <span class="c1"># The first instantiation of the subclass will call `_no_init_or_replace_init` which</span>
+</span><span id="DeploymentTarget.__init__-1966"><a href="#DeploymentTarget.__init__-1966"><span class="linenos">1966</span></a>    <span class="c1"># searches for a proper new `__init__` in the MRO. The new `__init__`</span>
+</span><span id="DeploymentTarget.__init__-1967"><a href="#DeploymentTarget.__init__-1967"><span class="linenos">1967</span></a>    <span class="c1"># replaces the subclass&#39; old `__init__` (ie `_no_init_or_replace_init`). Subsequent</span>
+</span><span id="DeploymentTarget.__init__-1968"><a href="#DeploymentTarget.__init__-1968"><span class="linenos">1968</span></a>    <span class="c1"># instantiation of the protocol subclass will thus use the new</span>
+</span><span id="DeploymentTarget.__init__-1969"><a href="#DeploymentTarget.__init__-1969"><span class="linenos">1969</span></a>    <span class="c1"># `__init__` and no longer call `_no_init_or_replace_init`.</span>
+</span><span id="DeploymentTarget.__init__-1970"><a href="#DeploymentTarget.__init__-1970"><span class="linenos">1970</span></a>    <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
+</span><span id="DeploymentTarget.__init__-1971"><a href="#DeploymentTarget.__init__-1971"><span class="linenos">1971</span></a>        <span class="n">init</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;__init__&#39;</span><span class="p">,</span> <span class="n">_no_init_or_replace_init</span><span class="p">)</span>
+</span><span id="DeploymentTarget.__init__-1972"><a href="#DeploymentTarget.__init__-1972"><span class="linenos">1972</span></a>        <span class="k">if</span> <span class="n">init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_no_init_or_replace_init</span><span class="p">:</span>
+</span><span id="DeploymentTarget.__init__-1973"><a href="#DeploymentTarget.__init__-1973"><span class="linenos">1973</span></a>            <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="o">=</span> <span class="n">init</span>
+</span><span id="DeploymentTarget.__init__-1974"><a href="#DeploymentTarget.__init__-1974"><span class="linenos">1974</span></a>            <span class="k">break</span>
+</span><span id="DeploymentTarget.__init__-1975"><a href="#DeploymentTarget.__init__-1975"><span class="linenos">1975</span></a>    <span class="k">else</span><span class="p">:</span>
+</span><span id="DeploymentTarget.__init__-1976"><a href="#DeploymentTarget.__init__-1976"><span class="linenos">1976</span></a>        <span class="c1"># should not happen</span>
+</span><span id="DeploymentTarget.__init__-1977"><a href="#DeploymentTarget.__init__-1977"><span class="linenos">1977</span></a>        <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__init__</span>
+</span><span id="DeploymentTarget.__init__-1978"><a href="#DeploymentTarget.__init__-1978"><span class="linenos">1978</span></a>
+</span><span id="DeploymentTarget.__init__-1979"><a href="#DeploymentTarget.__init__-1979"><span class="linenos">1979</span></a>    <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -708,12 +737,18 @@ infrastructure (internal K8s, custom ECS, on-prem servers, etc.).</p>
 
             <div class="docstring"><p>Deploy a model.</p>
 
-<p>Args:
-    config: DeploymentConfig or GeronimoConfig
-    artifacts: Dict of artifact name -> URI</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    DeploymentInfo with endpoint URL and status</p>
+<ul>
+<li><strong>config:</strong>  DeploymentConfig or GeronimoConfig</li>
+<li><strong>artifacts:</strong>  Dict of artifact name -> URI</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>DeploymentInfo with endpoint URL and status</p>
+</blockquote>
 </div>
 
 
@@ -744,11 +779,17 @@ infrastructure (internal K8s, custom ECS, on-prem servers, etc.).</p>
 
             <div class="docstring"><p>Check deployment status.</p>
 
-<p>Args:
-    deployment_id: ID returned from deploy()</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Current deployment status</p>
+<ul>
+<li><strong>deployment_id:</strong>  ID returned from deploy()</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Current deployment status</p>
+</blockquote>
 </div>
 
 
@@ -776,8 +817,11 @@ infrastructure (internal K8s, custom ECS, on-prem servers, etc.).</p>
 
             <div class="docstring"><p>Remove a deployment.</p>
 
-<p>Args:
-    deployment_id: ID of deployment to remove</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>deployment_id:</strong>  ID of deployment to remove</li>
+</ul>
 </div>
 
 
@@ -809,12 +853,18 @@ infrastructure (internal K8s, custom ECS, on-prem servers, etc.).</p>
 
             <div class="docstring"><p>Get deployment logs.</p>
 
-<p>Args:
-    deployment_id: ID of deployment
-    lines: Number of log lines to retrieve</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    List of log lines</p>
+<ul>
+<li><strong>deployment_id:</strong>  ID of deployment</li>
+<li><strong>lines:</strong>  Number of log lines to retrieve</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>List of log lines</p>
+</blockquote>
 </div>
 
 

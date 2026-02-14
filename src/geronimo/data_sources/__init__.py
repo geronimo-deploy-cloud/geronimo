@@ -41,3 +41,5 @@ __all__ = [
     "SQLServerConnection",
     "get_connection",
 ]
+
+__docformat__ = "google"

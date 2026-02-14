@@ -10,3 +10,5 @@ with the Geronimo platform. It provides commands for:
 
 This module contains the Click-based command definitions and the main entry point logic.
 """
+
+__docformat__ = "google"

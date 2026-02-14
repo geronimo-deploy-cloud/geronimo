@@ -26,3 +26,5 @@ __all__ = [
     "DeploymentInfo",
     "DeploymentStatus",
 ]
+
+__docformat__ = "google"

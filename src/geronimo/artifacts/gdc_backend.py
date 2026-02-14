@@ -20,6 +20,18 @@ class GeronimoDeployCloudArtifactBackend(ArtifactBackend):
     cross-user access via namespaces.
     """
 
+    project: Optional[str]
+    """The project name."""
+
+    version: Optional[str]
+    """The project version."""
+
+    namespace: Optional[str]
+    """Namespace for cross-user artifact access."""
+
+    client: GeronimoCloudClient
+    """The configured cloud client."""
+
     def __init__(
         self,
         project: Optional[str] = None,

@@ -16,3 +16,5 @@ Endpoints are automatically Dockerized and deployed to the target infrastructure
 from geronimo.serving.endpoint import Endpoint
 
 __all__ = ["Endpoint"]
+
+__docformat__ = "google"

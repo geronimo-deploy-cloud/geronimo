@@ -15,6 +15,16 @@ class GeronimoCloudClient:
     """Client for interacting with Geronimo Cloud API."""
 
     DEFAULT_API_URL = "https://api.geronimo.dev/v1"
+    """Default base URL for the API."""
+
+    api_url: str
+    """The API URL for Geronimo Cloud."""
+
+    token: Optional[str]
+    """The authentication token."""
+
+    headers: Dict[str, str]
+    """HTTP headers for API requests."""
 
     def __init__(self, api_url: Optional[str] = None, token: Optional[str] = None):
         """Initialize the cloud client.

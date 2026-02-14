@@ -47,6 +47,21 @@ class ArtifactStore:
         Run `geronimo config show` to view current settings.
     """
 
+    project: str
+    """The project name."""
+
+    version: str
+    """The version string (e.g., "1.2.0")."""
+
+    backend: str
+    """The active storage backend ("local", "s3", "gdc", "mlflow", or "custom")."""
+
+    base_path: Optional[str]
+    """Base path for local storage (if using local backend)."""
+
+    s3_bucket: Optional[str]
+    """S3 bucket name (if using s3 backend)."""
+
     def __init__(
         self,
         project: str,

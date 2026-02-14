@@ -76,6 +76,30 @@ class DataSource:
         return a DataFrame.
     """
 
+    name: str
+    """The name of the data source."""
+
+    source: SourceType
+    """The type of the data source."""
+
+    query: Optional[Query]
+    """The query object (for database sources)."""
+
+    path: Optional[str]
+    """The file path (for file sources)."""
+
+    handle: Optional[Callable[..., pd.DataFrame]]
+    """The function handle (for function sources)."""
+
+    connection_params: dict[str, Any]
+    """Connection parameters."""
+
+    _custom_connection: Optional[DatabaseConnection]
+    """Internal custom connection instance."""
+
+    join_spec: Optional["JoinSpec"]
+    """Specification for joining to this source."""
+
     def __init__(
         self,
         name: str,

@@ -22,3 +22,5 @@ __all__ = [
     "ValidationResult",
     "ValidationRule",
 ]
+
+__docformat__ = "google"

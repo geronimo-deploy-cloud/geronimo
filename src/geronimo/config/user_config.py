@@ -22,8 +22,13 @@ class ArtifactConfig:
     """Configuration for ArtifactStore defaults."""
     
     backend: Literal["local", "s3", "gdc"] = "local"
+    """Default storage backend."""
+
     s3_bucket: Optional[str] = None
+    """Default S3 bucket (if backend is s3)."""
+
     base_path: str = "~/.geronimo/artifacts"
+    """Default local base path (if backend is local)."""
 
 
 @dataclass
@@ -31,7 +36,10 @@ class DefaultsConfig:
     """Default project initialization settings."""
     
     framework: str = "sklearn"
+    """Default ML framework."""
+
     template: str = "realtime"
+    """Default project template."""
 
 
 @dataclass
@@ -42,7 +50,10 @@ class UserConfig:
     """
     
     artifacts: ArtifactConfig = field(default_factory=ArtifactConfig)
+    """Artifact storage configuration."""
+
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
+    """Default project settings."""
 
 
 def load_user_config() -> UserConfig:

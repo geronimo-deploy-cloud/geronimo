@@ -37,3 +37,5 @@ __all__ = [
     "get_require_auth",
     "get_current_api_key",
 ]
+
+__docformat__ = "google"

@@ -16,3 +16,5 @@ from geronimo.models.base import Model
 from geronimo.models.params import HyperParams
 
 __all__ = ["Model", "HyperParams"]
+
+__docformat__ = "google"

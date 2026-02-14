@@ -46,6 +46,12 @@ class Endpoint(ABC):
     artifact_project: Optional[str] = None
     artifact_version: Optional[str] = None
 
+    model: Optional["Model"]
+    """The loaded model instance."""
+
+    _is_initialized: bool
+    """Internal flag tracking initialization status."""
+
     def __init__(self):
         """Initialize endpoint."""
         self.model: Optional["Model"] = None

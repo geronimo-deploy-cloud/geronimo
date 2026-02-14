@@ -62,7 +62,13 @@ class BaseDatabaseConnection(ABC):
     Provides common functionality like context manager support
     and shared execute/close implementations.
     """
-    
+
+    connection_params: dict[str, Any]
+    """Connection parameters."""
+
+    _connection: Any
+    """The low-level database connection object."""
+
     def __init__(self, connection_params: Optional[dict[str, Any]] = None):
         """Initialize connection with parameters.
         

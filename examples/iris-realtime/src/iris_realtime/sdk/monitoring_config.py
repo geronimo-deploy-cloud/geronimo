@@ -64,6 +64,33 @@ def create_alert_manager() -> AlertManager:
 
 
 # =============================================================================
+# Drift Detection Configuration (Optional - requires Evidently)
+# =============================================================================
+
+def create_drift_detector(reference_data=None):
+    """Create and configure the drift detector.
+    
+    Args:
+        reference_data: Training data to compare production data against.
+                       Load this from your data warehouse or artifact store.
+    
+    Example:
+        import pandas as pd
+        training_df = pd.read_parquet("data/training_sample.parquet")
+        detector = create_drift_detector(reference_data=training_df)
+    """
+    from iris_realtime.monitoring.drift import DriftDetector
+    
+    return DriftDetector(
+        reference_data=reference_data,
+        # TODO: Specify your feature types
+        # categorical_features=["category", "region"],
+        # numerical_features=["age", "income", "score"],
+        # target_column="prediction",
+    )
+
+
+# =============================================================================
 # Threshold Monitoring (call periodically or after each request)
 # =============================================================================
 
@@ -73,6 +100,7 @@ def check_thresholds(metrics: MetricsCollector, alerts: AlertManager) -> None:
     Call this periodically (e.g., every minute) or after batch processing.
     
     Example:
+        # In app.py or a background task
         from iris_realtime.sdk.monitoring_config import (
             create_alert_manager, check_thresholds
         )

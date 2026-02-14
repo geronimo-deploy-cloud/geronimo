@@ -1,119 +1,191 @@
-"""FastAPI application for Iris species prediction.
+"""FastAPI application - thin wrapper around SDK endpoint.
 
-Run with:
-    uvicorn iris_realtime.app:app --reload
+This app integrates:
+- SDK endpoint for predictions
+- Monitoring middleware for latency/error tracking
+- Metrics collector for CloudWatch/custom backends
+- MCP server for AI agent integration (at /mcp)
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel
+from typing import Any
 
-from iris_realtime.sdk import IrisEndpoint, get_endpoint
+from geronimo.config.loader import load_config
+from iris_realtime.sdk.endpoint import IrisRealtimeEndpoint
+from iris_realtime.monitoring.middleware import MonitoringMiddleware
+from iris_realtime.monitoring.metrics import MetricsCollector
+
+
+# =============================================================================
+# Configuration - loaded from geronimo.yaml
+# =============================================================================
+
+def _find_config() -> Path:
+    """Find geronimo.yaml in current or parent directories."""
+    current = Path.cwd()
+    for _ in range(5):  # Search up to 5 levels
+        config_path = current / "geronimo.yaml"
+        if config_path.exists():
+            return config_path
+        current = current.parent
+    return Path("geronimo.yaml")
+
+_config_path = _find_config()
+_config = load_config(_config_path) if _config_path.exists() else None
+
+PROJECT_NAME = _config.project.name if _config else "iris-realtime"
+
+# Metrics backend: "cloudwatch", "local", or custom
+METRICS_BACKEND = "local"  # TODO: Change to "cloudwatch" for production
+
+# MCP agent integration - reads from geronimo.yaml model.mcp_enabled
+ENABLE_MCP = _config.model.mcp_enabled if _config else True
+
+
+# =============================================================================
+# Initialize components
+# =============================================================================
+
+# Initialize metrics collector
+# For CloudWatch: MetricsCollector(project_name=PROJECT_NAME, namespace="MLModels")
+metrics = MetricsCollector(project_name=PROJECT_NAME)
+
+# Lazy-load endpoint
+_endpoint = None
+
+
+def get_endpoint():
+    global _endpoint
+    if _endpoint is None:
+        _endpoint = IrisRealtimeEndpoint()
+        _endpoint.initialize()
+    return _endpoint
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifecycle - load model on startup."""
+    # Startup: pre-load model for faster first request
+    get_endpoint()
+    yield
+    # Shutdown: cleanup if needed
+
+
+# =============================================================================
+# FastAPI App
+# =============================================================================
+
+app = FastAPI(
+    title=PROJECT_NAME,
+    description="ML model serving API with monitoring",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS middleware - customize origins for production
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # TODO: Restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Monitoring middleware - tracks latency, errors, request counts
+app.add_middleware(MonitoringMiddleware, collector=metrics)
+
+
+# =============================================================================
+# MCP Agent Integration (AI agents can call your model via /mcp)
+# =============================================================================
+
+if ENABLE_MCP:
+    try:
+        from iris_realtime.agent import mcp
+        app.mount("/mcp", mcp.streamable_http_app())
+    except ImportError:
+        pass  # MCP dependencies not installed
 
 
 # =============================================================================
 # Request/Response Models
 # =============================================================================
 
-class IrisPredictRequest(BaseModel):
-    """Request model for Iris prediction."""
-    sepal_length: float = Field(..., ge=0, le=10, description="Sepal length in cm")
-    sepal_width: float = Field(..., ge=0, le=10, description="Sepal width in cm")
-    petal_length: float = Field(..., ge=0, le=10, description="Petal length in cm")
-    petal_width: float = Field(..., ge=0, le=10, description="Petal width in cm")
+class PredictRequest(BaseModel):
+    """Prediction request schema."""
+    features: dict[str, Any]
     
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "sepal_length": 5.1,
-                    "sepal_width": 3.5,
-                    "petal_length": 1.4,
-                    "petal_width": 0.2,
-                }
-            ]
+    """json
+    "example": "request".
+    "request_body": {
+        "features":
+        {
+            "sepal_length": 5.1,
+            "sepal_width": 3.5,
+            "petal_length": 1.4,
+            "petal_width": 0.2,
         }
     }
+    """
 
 
-class IrisPredictResponse(BaseModel):
-    """Response model for Iris prediction."""
-    prediction: str = Field(..., description="Predicted species name")
-    confidence: float = Field(..., ge=0, le=1, description="Confidence score")
-    probabilities: dict[str, float] = Field(..., description="Class probabilities")
-
-
-# =============================================================================
-# Application Setup
-# =============================================================================
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifecycle - load model on startup."""
-    # Startup: initialize endpoint (loads or trains model)
-    endpoint = get_endpoint()
-    print(f"Iris model loaded: {endpoint.model.name} v{endpoint.model.version}")
-    yield
-    # Shutdown: cleanup if needed
-
-
-app = FastAPI(
-    title="Iris Species Classifier",
-    description="Predict Iris flower species from sepal/petal measurements",
-    version="1.0.0",
-    lifespan=lifespan,
-)
-
-# CORS for web clients
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class PredictResponse(BaseModel):
+    """Prediction response schema."""
+    prediction: Any
 
 
 # =============================================================================
-# Routes
+# Endpoints
 # =============================================================================
 
 @app.get("/health")
-def health_check():
+def health():
     """Health check endpoint."""
-    return {"status": "ok"}
+    return {"status": "ok", "mcp_enabled": ENABLE_MCP}
 
 
-@app.get("/info")
-def model_info():
-    """Get model information."""
-    endpoint = get_endpoint()
+@app.get("/metrics")
+def get_metrics():
+    """Get current metrics summary.
+    
+    Returns latency percentiles, request counts, and error rates.
+    """
     return {
-        "model": endpoint.model.name,
-        "version": endpoint.model.version,
-        "species": endpoint.model.SPECIES,
-        "features": endpoint.model.features.feature_names,
+        "latency_p50_ms": metrics.get_latency_p50(),
+        "latency_p99_ms": metrics.get_latency_p99(),
+        "request_count": metrics.get_request_count(),
+        "error_count": metrics.get_error_count(),
     }
 
 
-@app.post("/predict", response_model=IrisPredictResponse)
-def predict(request: IrisPredictRequest):
-    """Predict Iris species from flower measurements.
+@app.post("/predict", response_model=PredictResponse)
+def predict(request: PredictRequest):
+    """Generate prediction from model.
     
-    Pass sepal and petal dimensions to classify as:
-    - setosa
-    - versicolor
-    - virginica
+    The endpoint handles:
+    1. preprocess() - transform request to features
+    2. model.predict() - generate prediction
+    3. postprocess() - format response
+    
+    Latency and errors are automatically tracked by MonitoringMiddleware.
     """
     try:
         endpoint = get_endpoint()
         result = endpoint.handle(request.model_dump())
-        return result
+        return PredictResponse(prediction=result)
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 # =============================================================================
 # Example usage

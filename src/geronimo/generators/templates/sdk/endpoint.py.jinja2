@@ -1,10 +1,10 @@
 """Endpoint definition - handle incoming prediction requests."""
 
 from geronimo.serving import Endpoint
-from .model import ProjectModel
+from .model import {{ project_name | pascal_case }}Model
 
 
-class PredictEndpoint(Endpoint):
+class {{ project_name | pascal_case }}Endpoint(Endpoint):
     """Prediction endpoint for real-time serving.
     
     This is a working demo endpoint. Replace the preprocess/postprocess
@@ -14,7 +14,7 @@ class PredictEndpoint(Endpoint):
         uv run python -m {{ project_name | snake_case }}.train
     """
 
-    model_class = ProjectModel
+    model_class = {{ project_name | pascal_case }}Model
 
     def preprocess(self, request: dict):
         """Transform incoming request to model input.

@@ -1,68 +1,71 @@
-"""Model definition for Iris classification."""
+"""Model definition for iris-realtime.
 
-from typing import Optional
+This is the central file for your ML model. Implement:
+- train(): Load data, fit features, train estimator
+- predict(): Transform input and generate predictions
+- save(): Persist estimator and features to ArtifactStore
+- load(): Restore estimator and features from ArtifactStore
+"""
+
+from typing import Any, Optional
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from pathlib import Path
 import pandas as pd
 
 from geronimo.models import Model, HyperParams
 from geronimo.artifacts import ArtifactStore
-from .features import IrisFeatures
-from .data_sources import training_data
+from .features import IrisRealtimeFeatures
+from .data_sources import training_sources
 
 
-class IrisModel(Model):
-    """Random Forest classifier for Iris species prediction.
+class IrisRealtimeModel(Model):
+    """ML model for iris-realtime.
     
-    Uses the declarative IrisFeatures for feature transformation
-    and ArtifactStore for persisting trained artifacts.
-    
-    Predicts one of three Iris species:
-    - setosa (0)
-    - versicolor (1)  
-    - virginica (2)
+    Uses declarative features for transformation and ArtifactStore for persistence.
     """
 
     name = "iris-realtime"
     version = "1.0.0"
     
-    # Class labels
-    SPECIES = ["setosa", "versicolor", "virginica"]
-    
     def __init__(self):
         super().__init__()
-        self.estimator: Optional[RandomForestClassifier] = None
-        self.features: Optional[IrisFeatures] = None
+        self.estimator: Optional[Any] = None
+        self.features: Optional[IrisRealtimeFeatures] = None
         self._is_fitted = False
 
     def train(self) -> dict:
-        """Train the Iris classifier.
+        """Train the model.
+        
+        Loads training data sources, joins them, fits features, and trains estimator.
 
         Returns:
             Training metrics dict
         """
+        if not training_sources:
+            raise ValueError("No training_* DataSources defined in data_sources.py")
         
-        # Load data from DataSource 
-        df = training_data.load()
+        # Load and join training data sources
+        df = training_sources[0].load()
+        for source in training_sources[1:]:
+            source_df = source.load()
+            if source.join_spec:
+                df = df.merge(
+                    source_df,
+                    left_on=source.join_spec.left_on,
+                    right_on=source.join_spec.right_on,
+                    how=source.join_spec.how,
+                )
+        
+        # TODO: Configure your target column if supervised learning
         y = df["species"].values
-
-        # Initialize features for training
-        self.features = IrisFeatures()
         
-        # Use the declarative features for transformation
-        X_transformed = self.features.fit_transform(df)
-       
-        # Default hyperparameters
-        params = HyperParams(
-            n_estimators=100,
-            max_depth=5,
-            random_state=42
-        )
+        # Initialize and fit features
+        self.features = IrisRealtimeFeatures()
+        X = self.features.fit_transform(df)
         
-        # Train model on transformed features
+        from sklearn.ensemble import RandomForestClassifier
+        params = HyperParams(n_estimators=100, max_depth=5, random_state=42)
         self.estimator = RandomForestClassifier(**params.to_dict())
-        self.estimator.fit(X_transformed, y)
+        self.estimator.fit(X, y)
         self._is_fitted = True
         
         # Calculate training accuracy
@@ -74,16 +77,15 @@ class IrisModel(Model):
             "n_features": X_transformed.shape[1],
         }
 
-    def predict(self, X) -> np.ndarray:
-        """Predict species for input features.
-        
-        Uses the fitted IrisFeatures for preprocessing.
+    def predict(self, X, return_probabilities: bool = False) -> np.ndarray:
+        """Predict using the trained model.
         
         Args:
-            X: Feature array or DataFrame of shape (n_samples, 4)
+            X: Feature array or DataFrame
+            return_probabilities: Whether to return probabilities
             
         Returns:
-            Predicted class labels
+            Predictions array
         """
         if not self._is_fitted:
             raise RuntimeError("Model not trained. Call train() or load() first.")
@@ -92,43 +94,19 @@ class IrisModel(Model):
             df = pd.DataFrame(X, columns=self.features.feature_names)
         else:
             df = X
-
-        # Transform using declarative features
+        
+        # Transform using fitted features
         X_transformed = self.features.transform(df)
-        return self.estimator.predict(X_transformed)
-    
-    def predict_proba(self, X) -> np.ndarray:
-        """Predict class probabilities.
-        
-        Uses the fitted IrisFeatures for preprocessing.
-        
-        Args:
-            X: Feature array or DataFrame of shape (n_samples, 4)
-            
-        Returns:
-            Probability array of shape (n_samples, 3)
-        """
-        if not self._is_fitted:
-            raise RuntimeError("Model not trained. Call train() or load() first.")
-        
-        if isinstance(X, np.ndarray):
-            df = pd.DataFrame(X, columns=self.features.feature_names)
+        if return_probabilities:
+            return self.estimator.predict_proba(X_transformed)
         else:
-            df = X
-
-        # Transform using declarative features
-        X_transformed = self.features.transform(df)
-        return self.estimator.predict_proba(X_transformed)
+            return self.estimator.predict(X_transformed)
     
     def save(self, store: ArtifactStore) -> list[str]:
         """Save trained model and features to ArtifactStore.
         
-        Saves:
-        - estimator: The fitted RandomForest classifier
-        - features: The fitted IrisFeatures (includes scalers)
-        
         Args:
-            store: ArtifactStore instance for saving artifacts
+            store: ArtifactStore instance
             
         Returns:
             List of saved artifact paths
@@ -142,7 +120,7 @@ class IrisModel(Model):
         path = store.save(
             "estimator", 
             self.estimator, 
-            artifact_type="RandomForestClassifier",
+            artifact_type=type(self.estimator).__name__,
             tags={"model": self.name, "version": self.version}
         )
         paths.append(path)
@@ -151,7 +129,7 @@ class IrisModel(Model):
         path = store.save(
             "features",
             self.features,
-            artifact_type="IrisFeatures",
+            artifact_type="IrisRealtimeFeatures",
             tags={"model": self.name, "version": self.version}
         )
         paths.append(path)
@@ -162,7 +140,7 @@ class IrisModel(Model):
         """Load trained model and features from ArtifactStore.
         
         Args:
-            store: ArtifactStore instance for loading artifacts
+            store: ArtifactStore instance
         """
         self.estimator = store.get("estimator")
         self.features = store.get("features")

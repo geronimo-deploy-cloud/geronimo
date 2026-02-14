@@ -1,28 +1,27 @@
-"""Data source definitions for Iris dataset.
+"""Data source definitions for iris-batch.
 
-Uses the new `source="function"` pattern which allows wrapping existing
-data loading functions as declarative DataSources.
+NAMING CONVENTIONS:
+- training_* : DataSources used for model training (e.g., training_customers, training_transactions)
+- production_* : DataSources used for production inference/batch scoring
+
+JOIN BEHAVIOR:
+- The FIRST DataSource in each group is the primary source
+- Subsequent DataSources are joined to the primary using their join_spec
+- All DataSources in a group should share a common primary key
+
+This module is imported by model.py and pipeline.py to load training/scoring data.
 """
 
-import pandas as pd
-from sklearn.datasets import load_iris
+import sys
+from geronimo.data_sources import DataSource, JoinSpec, Query, collect_data_sources
 
-from geronimo.data_sources import DataSource
 
+# =============================================================================
+# Training Data Sources
+# =============================================================================
 
 def _load_iris_dataframe() -> pd.DataFrame:
-    """Load Iris dataset from sklearn as a DataFrame.
-    
-    This function demonstrates wrapping an existing data loading
-    function for use with Geronimo's DataSource abstraction.
-    
-    Returns:
-        DataFrame with iris measurements and species labels.
-        
-    Note:
-        When using `source="function"`, the handle MUST return a 
-        pandas DataFrame. This is validated at runtime.
-    """
+    """Load Iris dataset from sklearn."""
     iris = load_iris()
     df = pd.DataFrame(
         iris.data,
@@ -37,28 +36,20 @@ def _load_iris_dataframe() -> pd.DataFrame:
     return df
 
 
-# =============================================================================
-# DataSource Definitions
-# =============================================================================
-
 # Training data using the function source pattern
-# The handle function is validated at runtime to ensure it returns a DataFrame
 training_data = DataSource(
     name="iris_training",
     source="function",
     handle=_load_iris_dataframe,
 )
 
-# Alternative: File-based source for production use
-# training_data = DataSource(
-#     name="iris_training",
-#     source="file",
-#     path="data/iris_train.csv",
-# )
+# =============================================================================
+# Production Data Sources
+# =============================================================================
 
-# Alternative: Database source for enterprise use
-# training_data = DataSource(
-#     name="iris_training",
-#     source="snowflake",
-#     query=Query.from_file("queries/iris_features.sql"),
-# )
+# =============================================================================
+# Auto-collect sources
+# =============================================================================
+
+# Automatically collect training and production sources from module
+training_sources, production_sources = collect_data_sources(sys.modules[__name__])

@@ -1,4 +1,4 @@
-"""MCP Server for {{ project_name }} - AI Agent Integration.
+"""MCP Server for iris-realtime - AI Agent Integration.
 
 This module provides an MCP (Model Context Protocol) server that exposes
 your ML model as a tool for AI agents like Claude.
@@ -8,7 +8,7 @@ Transports:
 - HTTP: Mounted at /mcp on your FastAPI app for remote agents
 
 Usage (stdio):
-    uv run python -m {{ project_name | snake_case }}.agent
+    uv run python -m iris_realtime.agent
 """
 
 import os
@@ -21,28 +21,28 @@ except ImportError:
         "FastMCP not installed. Install with: pip install fastmcp"
     )
 
-from {{ project_name | snake_case }}.sdk.endpoint import {{ project_name | pascal_case }}Endpoint
+from iris_realtime.sdk.endpoint import IrisRealtimeEndpoint
 
 
 # Initialize MCP server
-mcp = FastMCP("{{ project_name }}")
+mcp = FastMCP("iris-realtime")
 
 # Lazy-load endpoint
 _endpoint = None
 
 
-def get_endpoint() -> {{ project_name | pascal_case }}Endpoint:
+def get_endpoint() -> IrisRealtimeEndpoint:
     """Get or initialize the prediction endpoint."""
     global _endpoint
     if _endpoint is None:
-        _endpoint = {{ project_name | pascal_case }}Endpoint()
+        _endpoint = IrisRealtimeEndpoint()
         _endpoint.initialize()
     return _endpoint
 
 
 @mcp.tool()
 async def predict(features: dict[str, Any]) -> str:
-    """Make a prediction using the {{ project_name }} ML model.
+    """Make a prediction using the iris-realtime ML model.
     
     Args:
         features: Dictionary of input features for the model.
@@ -82,10 +82,10 @@ def run_stdio():
     
     {
         "mcpServers": {
-            "{{ project_name }}": {
+            "iris-realtime": {
                 "command": "uv",
-                "args": ["run", "python", "-m", "{{ project_name | snake_case }}.agent"],
-                "cwd": "/path/to/{{ project_name }}"
+                "args": ["run", "python", "-m", "iris_realtime.agent"],
+                "cwd": "/path/to/iris-realtime"
             }
         }
     }

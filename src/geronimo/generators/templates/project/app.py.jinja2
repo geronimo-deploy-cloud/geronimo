@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from typing import Any
 
 from geronimo.config.loader import load_config
-from {{ project_name | snake_case }}.sdk.endpoint import PredictEndpoint
+from {{ project_name | snake_case }}.sdk.endpoint import {{ project_name | pascal_case }}Endpoint
 from {{ project_name | snake_case }}.monitoring.middleware import MonitoringMiddleware
 from {{ project_name | snake_case }}.monitoring.metrics import MetricsCollector
 
@@ -61,7 +61,7 @@ _endpoint = None
 def get_endpoint():
     global _endpoint
     if _endpoint is None:
-        _endpoint = PredictEndpoint()
+        _endpoint = {{ project_name | pascal_case }}Endpoint()
         _endpoint.initialize()
     return _endpoint
 

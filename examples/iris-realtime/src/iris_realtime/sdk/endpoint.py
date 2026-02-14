@@ -1,23 +1,13 @@
-"""Endpoint definition for Iris prediction API.
-
-The endpoint uses ModelPredictor for inference, which loads
-artifacts from the ArtifactStore. Training must be done separately
-(via train.py) before the endpoint can serve.
-"""
-
-from typing import Optional
-import numpy as np
-import pandas as pd
+"""Endpoint definition - handle incoming prediction requests."""
 
 from geronimo.serving import Endpoint
-from iris_realtime.ml.predictor import ModelPredictor
-from .model import IrisModel
+from .model import IrisRealtimeModel
 
 
-class IrisEndpoint(Endpoint):
+class IrisRealtimeEndpoint(Endpoint):
     """REST API endpoint for Iris species prediction.
     
-    Uses ModelPredictor for inference, which loads pre-trained
+    Uses IrisRealtimeModel for inference, which loads pre-trained
     artifacts from ArtifactStore. Training should be done 
     separately using train.py before starting the endpoint.
     
@@ -41,40 +31,17 @@ class IrisEndpoint(Endpoint):
         }
     """
 
-    model_class = IrisModel
 
-    def initialize(self, project: str | None = None, version: str | None = None) -> None:
-        """Initialize endpoint by loading model from ArtifactStore.
-        
-        The model and fitted features MUST exist in the artifact store.
-        Run train.py first to create the artifacts.
+    model_class = IrisRealtimeModel
+
+    def preprocess(self, request: dict):
+        """Transform incoming request to model input.
         
         Args:
-            project: Project name in ArtifactStore (defaults to model.name)
-            version: Model version to load (defaults to model.version)
-            
-        Raises:
-            KeyError: If artifacts not found (model not trained)
-        """
-        # Use ModelPredictor for transparent artifact loading
-        self._predictor = ModelPredictor(
-            IrisModel,
-            project=project,
-            version=version,
-        )
-        self._predictor.load()
-        
-        print(f"Loaded model from ArtifactStore: {self._predictor.project}@{self._predictor.version}")
-        self._is_initialized = True
-
-    def preprocess(self, request: dict) -> pd.DataFrame:
-        """Transform request into DataFrame for model.
-        
-        Args:
-            request: JSON request body with flower measurements
+            request: JSON request body with "features" key
             
         Returns:
-            DataFrame with feature columns
+            Feature matrix ready for model.predict()
         """
         # Handle both flat and nested request formats
         if "features" in request:
@@ -92,70 +59,27 @@ class IrisEndpoint(Endpoint):
         
         return df
 
-    def postprocess(self, probabilities: np.ndarray) -> dict:
-        """Format model output as API response.
+    def postprocess(self, prediction):
+        """Format model output for response.
         
         Args:
-            probabilities: Class probabilities from model
+            prediction: Raw model output
             
         Returns:
-            Response dict with prediction and confidence
+            JSON-serializable response
         """
-        probs = probabilities[0]
-        predicted_class = int(np.argmax(probs))
-        species = IrisModel.SPECIES[predicted_class]
-        confidence = float(probs[predicted_class])
+        return {"result": prediction}
+    
+    def initialize(self, project=None, version=None):
+        """Initialize endpoint.
         
-        return {
-            "prediction": species,
-            "confidence": round(confidence, 4),
-            "probabilities": {
-                name: round(float(p), 4)
-                for name, p in zip(IrisModel.SPECIES, probs)
-            },
-            "model_version": IrisModel.version,
-        }
+        Parent class handles loading of the fitted model from the artifact store.
+        """
+        super().initialize(project=project, version=version)
     
     def handle(self, request: dict) -> dict:
-        """Handle a prediction request.
+        """Handle prediction request.
         
-        Preprocessing creates a DataFrame, the predictor handles
-        feature transformation and model inference.
-        
-        Args:
-            request: Input request with flower measurements
-            
-        Returns:
-            Prediction response
+        Parent class handles calling the model's predict method.
         """
-        if not self._is_initialized:
-            raise RuntimeError(
-                "Endpoint not initialized. Did you run train.py first? "
-                "Call initialize() after training to load the model."
-            )
-        
-        # Preprocess → Predict (predictor uses fitted features) → Postprocess
-        features_df = self.preprocess(request)
-        probabilities = self._predictor.predict_proba(features_df)
-        return self.postprocess(probabilities)
-
-
-# Singleton for FastAPI app
-_endpoint: Optional[IrisEndpoint] = None
-
-
-def get_endpoint() -> IrisEndpoint:
-    """Get or create the endpoint singleton.
-    
-    Raises:
-        KeyError: If model artifacts not found (need to run train.py first)
-    """
-    global _endpoint
-    if _endpoint is None:
-        _endpoint = IrisEndpoint()
-        _endpoint.initialize()
-    return _endpoint
-
-
-# Alias for backward compatibility
-PredictEndpoint = IrisEndpoint
+        return super().handle(request)

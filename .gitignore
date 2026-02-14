@@ -5,6 +5,10 @@ build/
 dist/
 wheels/
 *.egg-info
+*.DS_Store
+
+# Metaflow
+.metaflow
 
 # Virtual environments
 .venv

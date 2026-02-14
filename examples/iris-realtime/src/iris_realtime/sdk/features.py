@@ -1,10 +1,23 @@
-"""Feature definitions for Iris classification."""
+"""Feature definitions for iris-realtime.
+
+DEVELOPMENT WORKFLOW:
+1. Review training and production data sources for column consistency
+2. Perform exploratory data analysis (EDA) to identify:
+   - Missing values → consider imputation strategies
+   - Outliers → consider clipping or winsorization  
+   - Skewed distributions → consider log/power transforms
+   - Categorical cardinality → consider encoding strategies
+3. Define Features with appropriate transformers
+
+Each Feature describes a column with its type, transformer, and encoder.
+The FeatureSet handles fit_transform (training) and transform (inference).
+"""
 
 from geronimo.features import FeatureSet, Feature
 from sklearn.preprocessing import StandardScaler
 
 
-class IrisFeatures(FeatureSet):
+class IrisRealtimeFeatures(FeatureSet):
     """Feature set for Iris flower classification.
     
     All 4 measurements are numeric and standardized for optimal
@@ -32,7 +45,3 @@ class IrisFeatures(FeatureSet):
         description="Petal width in cm"
     )
     
-    @property
-    def feature_names(self) -> list[str]:
-        """Return ordered list of feature column names."""
-        return ["sepal_length", "sepal_width", "petal_length", "petal_width"]

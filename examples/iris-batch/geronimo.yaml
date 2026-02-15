@@ -18,18 +18,18 @@ runtime:
   - metaflow>=2.10.0
   - pyarrow>=14.0.0
 infrastructure:
-  cpu: 512
-  memory: 1024
+  cpu: 1024
+  memory: 4096
   scaling:
     min_instances: 1
     max_instances: 4
     target_cpu_percent: 70
 monitoring:
   metrics:
-  - latency_p50
-  - latency_p99
+  - records_processed
+  - pipeline_duration
   - error_rate
-  - request_count
+  - drift_score
   alerts: []
   dashboard_enabled: true
   drift_detection:
@@ -52,11 +52,15 @@ deployment:
     approval_required: true
     variables: {}
 batch:
-  enabled: false
+  enabled: true
   backend: step-functions
   step_functions:
     s3_root: s3://metaflow-data
   airflow:
     connection_id: astronomer_default
     namespace: default
-  jobs: []
+  jobs:
+  - name: iris-batch-scoring
+    flow_file: src/iris_batch/flow.py
+    cpu: 4
+    memory: 8192

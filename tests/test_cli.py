@@ -148,6 +148,52 @@ class TestCLIInit:
         assert "fastapi" in pyproject
         assert "uvicorn" in pyproject
 
+    def test_init_batch_readme_content(self, temp_dir):
+        """Test batch template generates batch-specific README."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "readme-batch",
+                "--template", "batch",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        readme = (temp_dir / "readme-batch" / "README.md").read_text()
+        
+        # Should reference batch concepts
+        assert "batch pipeline" in readme.lower()
+        assert "flow" in readme
+        assert "pipeline" in readme
+        
+        # Should NOT reference realtime concepts
+        assert "uvicorn" not in readme
+        assert "FastAPI" not in readme
+
+    def test_init_realtime_readme_content(self, temp_dir):
+        """Test realtime template generates realtime-specific README."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "readme-rt",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        readme = (temp_dir / "readme-rt" / "README.md").read_text()
+        
+        # Should reference realtime concepts
+        assert "uvicorn" in readme
+        assert "model serving" in readme.lower()
+        
+        # Should NOT reference batch concepts
+        assert "batch pipeline" not in readme.lower()
+
 
 
 class TestCLIKeys:

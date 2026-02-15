@@ -8,6 +8,7 @@ Build ML batch jobs with Metaflow and the Geronimo SDK.
 geronimo init --name my-pipeline --template batch
 cd my-pipeline
 uv sync
+source .venv/bin/activate
 ```
 
 ## 2. Project Structure
@@ -24,10 +25,6 @@ my-pipeline/
 │   │   └── monitoring_config.py  # Drift thresholds and alerts
 │   ├── flow.py                   # Thin Metaflow wrapper (auto-generated)
 │   └── train.py                  # Training script
-├── batch/
-│   ├── data/                     # Input data
-│   └── output/                   # Scored results
-└── models/                       # Saved model artifacts
 ```
 
 ## 3. Implement SDK Components
@@ -118,26 +115,91 @@ class ScoringPipeline(BatchPipeline):
         return {"samples_scored": len(predictions)}
 ```
 
-## 4. Run Locally
+### Define Training Script (`train.py`)
+
+```python
+from geronimo.artifacts import ArtifactStore
+from .sdk.model import ProjectModel
+
+
+def main():
+    # Load data
+    data = training_data.load()
+    
+    # Initialize and train model
+    model = ProjectModel()
+    metrics = model.train(data)
+    
+    # Save model
+    store = ArtifactStore(
+        project="my-pipeline",
+        version="1.0.0",
+    )
+    store.save("model", model, artifact_type="ProjectModel")
+    store.save("metrics", metrics, artifact_type="Metrics")
+    
+    return metrics
+```
+
+### Define Flow (`flow.py`)
+
+```python
+from geronimo.flow import Flow
+from .sdk.pipeline import ScoringPipeline
+from .sdk.model import ProjectModel
+
+
+class MyPipeline(Flow):
+    name = "my-pipeline"
+    version = "1.0.0"
+    
+    def run(self):
+        # Train model
+        metrics = ProjectModel().train()
+        
+        # Score data
+        pipeline = ScoringPipeline()
+        pipeline.initialize()
+        result = pipeline.execute()
+        
+        return {"metrics": metrics, "result": result}
+```
+
+## 4. Train The Model
+
+```bash
+python train.py
+
+==================================================
+Model Training
+==================================================
+
+1. Training model...
+   Training metrics: {'accuracy': 1.0, 'n_samples': 150, 'n_features': 4}
+
+2. Saving artifacts...
+   Saved artifacts to 2 locations
+   Backend: local
+
+==================================================
+Training complete!
+==================================================
+```
+
+## 5. Run Pipeline Locally
 
 ```bash
 # Execute via the flow.py wrapper
-python -m my_pipeline.flow run
+python flow.py run
+
+Running pylint...
+    Pylint not found, so extra checks are disabled.
+2026-02-15 13:59:30.813 Workflow starting (run-id 1771181970812176):
+2026-02-15 13:59:30.822 [1771181970812176/start/1 (pid 17442)] Task is starting.
+2026-02-15 13:59:31.738 [1771181970812176/start/1 (pid 17442)] Initialized: IrisBatchScoringPipeline(model=IrisBatchModel, schedule=Schedule(0 6 * * *), initialized)
 ```
 
-Or directly via SDK:
-
-```bash
-python -c "
-from my_pipeline.sdk.pipeline import ScoringPipeline
-pipeline = ScoringPipeline()
-pipeline.initialize()
-result = pipeline.execute()
-print(result)
-"
-```
-
-## 5. Configure Drift Detection (`sdk/monitoring_config.py`)
+## 6. Configure Drift Detection (`sdk/monitoring_config.py`)
 
 ```python
 # Drift thresholds
@@ -156,7 +218,7 @@ def run(self):
         pass
 ```
 
-## 6. Deployment Backends
+## 6. Deploy to Geronimo Deploy Cloud (Coming Soon)
 
 ### Step Functions (AWS)
 

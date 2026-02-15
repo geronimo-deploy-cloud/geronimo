@@ -8,6 +8,7 @@ Build ML APIs with FastAPI and the Geronimo SDK.
 geronimo init --name my-model --template realtime
 cd my-model
 uv sync
+source .venv/bin/activate
 ```
 
 ## 2. Project Structure
@@ -24,24 +25,42 @@ my-model/
 │   │   └── monitoring_config.py # Thresholds and alerts
 │   ├── app.py                  # Thin FastAPI wrapper (auto-generated)
 │   ├── train.py                # Training script
+│   ├── agent.py                # (Optional) MCP for Agentic AI Usage
 │   └── monitoring/             # Metrics, alerts, drift detection
-├── models/                     # Saved model artifacts
 └── tests/
 ```
 
 ## 3. Implement SDK Components
 
+### Define Data Source (`sdk/data_sources.py`)
+
+```python
+from geronimo.data_sources import DataSource, Query
+
+# Training data source
+training_data = DataSource(
+    name="training",
+    source="file",
+    path="data/train.csv",
+)
+
+# Scoring data for batch predictions
+scoring_data = DataSource(
+    name="scoring",
+    source="file",
+    path="batch/data/input.csv",
+)
+```
+
 ### Define Features (`sdk/features.py`)
 
 ```python
 from geronimo.features import FeatureSet, Feature
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 
 class ProjectFeatures(FeatureSet):
-    """Define your feature transformations."""
     # age = Feature(dtype="numeric", transformer=StandardScaler())
     # income = Feature(dtype="numeric", transformer=StandardScaler())
-    # segment = Feature(dtype="categorical", encoder=OneHotEncoder())
     pass
 ```
 
@@ -53,41 +72,124 @@ from .features import ProjectFeatures
 from .data_sources import training_data
 
 class ProjectModel(Model):
-    name = "my-model"
+    name = "scoring"
     version = "1.0.0"
     features = ProjectFeatures()
     data_source = training_data
 
     def train(self, X, y, params: HyperParams):
-        from sklearn.ensemble import RandomForestClassifier
-        self.estimator = RandomForestClassifier(**params.to_dict())
+        from xgboost import XGBClassifier
+        self.estimator = XGBClassifier(**params.to_dict())
         self.estimator.fit(X, y)
 
     def predict(self, X):
         return self.estimator.predict_proba(X)
 ```
 
-### Define Endpoint (`sdk/endpoint.py`)
+### Define Pipeline (`sdk/pipeline.py`)
 
 ```python
-from geronimo.serving import Endpoint
-import pandas as pd
+from geronimo.batch import BatchPipeline, Schedule
 from .model import ProjectModel
+from .data_sources import scoring_data
 
-class PredictEndpoint(Endpoint):
+class ScoringPipeline(BatchPipeline):
     model_class = ProjectModel
+    data_source = scoring_data
+    schedule = Schedule.daily(hour=6)
 
-    def preprocess(self, request: dict):
-        """Transform request to model input."""
-        df = pd.DataFrame([request["features"]])
-        return self.model.features.transform(df)
-
-    def postprocess(self, prediction):
-        """Format model output as response."""
-        return {"score": float(prediction[0][1])}
+    def run(self):
+        """Execute batch scoring logic.
+        
+        This method is called by the flow.py wrapper.
+        """
+        # Load scoring data
+        data = self.data_source.load()
+        
+        # Transform features
+        X = self.model.features.transform(data)
+        
+        # Predict
+        predictions = self.model.predict(X)
+        
+        # Save results
+        self.save_results(predictions, "batch/output/scores.parquet")
+        
+        return {"samples_scored": len(predictions)}
 ```
 
-## 4. Run Locally
+### Define Training Script (`train.py`)
+
+```python
+from geronimo.artifacts import ArtifactStore
+from .sdk.model import ProjectModel
+
+
+def main():
+    # Load data
+    data = training_data.load()
+    
+    # Initialize and train model
+    model = ProjectModel()
+    metrics = model.train(data)
+    
+    # Save model
+    store = ArtifactStore(
+        project="my-pipeline",
+        version="1.0.0",
+    )
+    store.save("model", model, artifact_type="ProjectModel")
+    store.save("metrics", metrics, artifact_type="Metrics")
+    
+    return metrics
+```
+
+### Define Flow (`flow.py`)
+
+```python
+from geronimo.flow import Flow
+from .sdk.pipeline import ScoringPipeline
+from .sdk.model import ProjectModel
+
+
+class MyPipeline(Flow):
+    name = "my-pipeline"
+    version = "1.0.0"
+    
+    def run(self):
+        # Train model
+        metrics = ProjectModel().train()
+        
+        # Score data
+        pipeline = ScoringPipeline()
+        pipeline.initialize()
+        result = pipeline.execute()
+        
+        return {"metrics": metrics, "result": result}
+```
+
+## 4. Train The Model
+
+```bash
+python train.py
+
+==================================================
+Model Training
+==================================================
+
+1. Training model...
+   Training metrics: {'accuracy': 1.0, 'n_samples': 150, 'n_features': 4}
+
+2. Saving artifacts...
+   Saved artifacts to 2 locations
+   Backend: local
+
+==================================================
+Training complete!
+==================================================
+```
+
+## 5. Run Locally
 
 ```bash
 # Start the API server
@@ -96,7 +198,7 @@ uvicorn my_model.app:app --reload
 
 The thin `app.py` wrapper handles FastAPI setup, imports your SDK endpoint, and adds monitoring middleware.
 
-## 5. Test Endpoints
+## 6. Test Endpoints
 
 ```bash
 # Health check
@@ -111,7 +213,7 @@ curl -X POST http://localhost:8000/predict \
      -d '{"features": {"age": 30, "income": 75000}}'
 ```
 
-## 6. Configure Monitoring (`sdk/monitoring_config.py`)
+## 7. Configure Monitoring (`sdk/monitoring_config.py`)
 
 ```python
 # Latency thresholds (milliseconds)

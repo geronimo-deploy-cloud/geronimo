@@ -37,8 +37,9 @@ export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 
 ```python
 from my_model.sdk.monitoring_config import create_alert_manager, check_thresholds
-from my_model.monitoring.metrics import metrics
+from my_model.monitoring.metrics import MetricsCollector
 
+metrics = MetricsCollector(project_name="my-model")
 alerts = create_alert_manager()
 check_thresholds(metrics, alerts)
 ```
@@ -110,49 +111,7 @@ def run(self):
 
 ---
 
-## CLI Commands
-
-### Capture Reference Baseline
-
-```bash
-# From file
-geronimo monitor capture-reference data.csv \
-  --project my-model \
-  --input-type file \
-  --sampling-rate 0.1
-
-# From database query
-geronimo monitor capture-reference query.sql \
-  --project my-model \
-  --input-type query \
-  --source-system snowflake
-```
-
-### Detect Drift
-
-```bash
-geronimo monitor detect-drift reference.json current_data.csv \
-  --threshold 0.1
-```
-
----
-
-## Programmatic API
-
-### Capture Reference
-
-```python
-from geronimo.monitoring.api import capture_reference_from_data
-
-snapshot = capture_reference_from_data(
-    data=training_df,
-    project_name="credit-risk",
-    model_version="1.2.0",
-    deployment_type="realtime",
-)
-```
-
-### DriftDetector Class
+## DriftDetector Class
 
 ```python
 from my_model.monitoring.drift import DriftDetector

@@ -6,7 +6,7 @@ Geronimo projects are "Agent-Ready" — expose your ML model as a tool for AI ag
 
 Realtime projects automatically include MCP support:
 - **`/mcp` endpoint** — For remote agents via Streamable HTTP
-- **`agent/server.py`** — For local desktop agents (Claude Desktop) via stdio
+- **`agent.py`** — For local desktop agents (Claude Desktop) via stdio
 
 ## Quick Start
 
@@ -110,12 +110,12 @@ The MCP tool wraps your SDK `PredictEndpoint`, which handles:
 
 ## Customization
 
-The agent implementation is in `src/<project>/agent/server.py`. You can add:
+The agent implementation is in `src/<project>/agent.py`. You can add:
 
 ### Additional Tools
 
 ```python
-from my_model.agent.server import mcp
+from my_model.agent import mcp
 
 @mcp.tool()
 async def explain_prediction(features: dict) -> str:
@@ -138,9 +138,9 @@ async def get_model_metadata() -> str:
 ### MCP dependencies not installed
 
 ```bash
-pip install mcp
+pip install fastmcp
 # or
-uv add mcp
+uv add fastmcp
 ```
 
 ### MCP endpoint not available

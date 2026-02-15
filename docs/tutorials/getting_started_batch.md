@@ -24,29 +24,46 @@ my-pipeline/
 │   │   ├── pipeline.py           # Define run() logic
 │   │   └── monitoring_config.py  # Drift thresholds and alerts
 │   ├── flow.py                   # Thin Metaflow wrapper (auto-generated)
-│   └── train.py                  # Training script
+│   ├── train.py                  # Training script
+│   └── monitoring/               # Metrics, alerts, drift detection
+└── tests/
 ```
 
 ## 3. Implement SDK Components
 
 ### Define Data Source (`sdk/data_sources.py`)
 
-```python
-from geronimo.data_sources import DataSource, Query
+DataSources support multiple source types: `"file"`, `"function"`, and database queries via `"snowflake"`, `"postgres"`, etc.
 
-# Training data source
+```python
+import sys
+from geronimo.data_sources import DataSource, Query, collect_data_sources
+
+# File source — load from CSV/Parquet
 training_data = DataSource(
     name="training",
     source="file",
     path="data/train.csv",
 )
 
-# Scoring data for batch predictions
-scoring_data = DataSource(
-    name="scoring",
-    source="file",
-    path="batch/data/input.csv",
-)
+# Function source — load from custom code
+# training_data = DataSource(
+#     name="training",
+#     source="function",
+#     handle=my_loader_function,
+# )
+
+# SQL database source
+# training_data = DataSource(
+#     name="training",
+#     source="snowflake",
+#     query=Query.from_file("queries/train.sql"),
+#     connection_params={"warehouse": "ML_WH"},
+# )
+
+# Auto-collect sources by naming convention (training_*, production_*)
+training_sources = collect_data_sources(sys.modules[__name__], "training_")
+production_sources = collect_data_sources(sys.modules[__name__], "production_")
 ```
 
 ### Define Features (`sdk/features.py`)
@@ -55,120 +72,212 @@ scoring_data = DataSource(
 from geronimo.features import FeatureSet, Feature
 from sklearn.preprocessing import StandardScaler
 
-class ProjectFeatures(FeatureSet):
-    # age = Feature(dtype="numeric", transformer=StandardScaler())
-    # income = Feature(dtype="numeric", transformer=StandardScaler())
-    pass
+class MyPipelineFeatures(FeatureSet):
+    """Feature engineering for my-pipeline."""
+    age = Feature(dtype="numeric", transformer=StandardScaler())
+    income = Feature(dtype="numeric", transformer=StandardScaler())
 ```
 
 ### Define Model (`sdk/model.py`)
 
+The model encapsulates data loading, feature fitting, training, and artifact persistence:
+
 ```python
+from typing import Any, Optional
+import numpy as np
+import pandas as pd
+
 from geronimo.models import Model, HyperParams
-from .features import ProjectFeatures
-from .data_sources import training_data
+from geronimo.artifacts import ArtifactStore
+from .features import MyPipelineFeatures
+from .data_sources import training_sources
 
-class ProjectModel(Model):
-    name = "scoring"
+
+class MyPipelineModel(Model):
+    name = "my-pipeline"
     version = "1.0.0"
-    features = ProjectFeatures()
-    data_source = training_data
 
-    def train(self, X, y, params: HyperParams):
-        from xgboost import XGBClassifier
-        self.estimator = XGBClassifier(**params.to_dict())
+    def __init__(self):
+        super().__init__()
+        self.estimator: Optional[Any] = None
+        self.features: Optional[MyPipelineFeatures] = None
+        self._is_fitted = False
+
+    def train(self) -> dict:
+        """Train the model.
+        
+        Loads training data, fits features, and trains estimator.
+        """
+        # Load and join training data sources
+        df = training_sources[0].load()
+        for source in training_sources[1:]:
+            source_df = source.load()
+            if source.join_spec:
+                df = df.merge(
+                    source_df,
+                    left_on=source.join_spec.left_on,
+                    right_on=source.join_spec.right_on,
+                    how=source.join_spec.how,
+                )
+
+        y = df["target"].values  # TODO: your target column
+
+        # Fit features and transform
+        self.features = MyPipelineFeatures()
+        X = self.features.fit_transform(df)
+
+        # Train estimator
+        from sklearn.ensemble import RandomForestClassifier
+        params = HyperParams(n_estimators=100, max_depth=5, random_state=42)
+        self.estimator = RandomForestClassifier(**params.to_dict())
         self.estimator.fit(X, y)
+        self._is_fitted = True
 
-    def predict(self, X):
-        return self.estimator.predict_proba(X)
+        return {
+            "accuracy": self.estimator.score(X, y),
+            "n_samples": len(y),
+            "n_features": X.shape[1],
+        }
+
+    def predict(self, X, return_probabilities: bool = False):
+        """Generate predictions."""
+        if not self._is_fitted:
+            raise RuntimeError("Model not trained. Call train() or load() first.")
+        X_transformed = self.features.transform(X)
+        if return_probabilities:
+            return self.estimator.predict_proba(X_transformed)
+        return self.estimator.predict(X_transformed)
+
+    def save(self, store: ArtifactStore) -> list[str]:
+        """Save trained estimator and features to ArtifactStore."""
+        paths = []
+        paths.append(store.save("estimator", self.estimator,
+                                artifact_type=type(self.estimator).__name__))
+        paths.append(store.save("features", self.features,
+                                artifact_type="MyPipelineFeatures"))
+        return paths
+
+    def load(self, store: ArtifactStore) -> None:
+        """Load trained estimator and features from ArtifactStore."""
+        self.estimator = store.get("estimator")
+        self.features = store.get("features")
+        self._is_fitted = True
 ```
 
 ### Define Pipeline (`sdk/pipeline.py`)
 
 ```python
-from geronimo.batch import BatchPipeline, Schedule
-from .model import ProjectModel
-from .data_sources import scoring_data
+from geronimo.batch import BatchPipeline
+from geronimo.batch.schedule import Schedule
+from .model import MyPipelineModel
+from .data_sources import training_data
+from .monitoring_config import create_drift_detector, check_drift
+
 
 class ScoringPipeline(BatchPipeline):
-    model_class = ProjectModel
-    data_source = scoring_data
+    model_class = MyPipelineModel
     schedule = Schedule.daily(hour=6)
 
     def run(self):
-        """Execute batch scoring logic.
-        
-        This method is called by the flow.py wrapper.
-        """
-        # Load scoring data
-        data = self.data_source.load()
-        
-        # Transform features
-        X = self.model.features.transform(data)
-        
-        # Predict
+        """Execute batch scoring logic."""
+        # Load data
+        df = training_data.load()
+
+        # Transform features using fitted model
+        X = self.model.features.transform(df)
+
+        # Check for drift
+        detector = create_drift_detector(reference_data=df)
+        drift_result = check_drift(detector, df)
+        if drift_result["has_drift"]:
+            print(f"⚠ Drift detected: {drift_result}")
+
+        # Run predictions
         predictions = self.model.predict(X)
-        
-        # Save results
-        self.save_results(predictions, "batch/output/scores.parquet")
-        
-        return {"samples_scored": len(predictions)}
+
+        # Format results
+        results = df.copy()
+        results["prediction"] = predictions
+        return results
 ```
 
 ### Define Training Script (`train.py`)
 
 ```python
 from geronimo.artifacts import ArtifactStore
-from .sdk.model import ProjectModel
+from my_pipeline.sdk.model import MyPipelineModel
 
 
 def main():
-    # Load data
-    data = training_data.load()
-    
-    # Initialize and train model
-    model = ProjectModel()
-    metrics = model.train(data)
-    
-    # Save model
+    print("=" * 50)
+    print("Model Training")
+    print("=" * 50)
+
+    # Train model (data loading + feature fitting is encapsulated)
+    print("\n1. Training model...")
+    model = MyPipelineModel()
+    metrics = model.train()
+    print(f"   Training metrics: {metrics}")
+
+    # Save artifacts
+    print("\n2. Saving artifacts...")
     store = ArtifactStore(
         project="my-pipeline",
         version="1.0.0",
     )
-    store.save("model", model, artifact_type="ProjectModel")
-    store.save("metrics", metrics, artifact_type="Metrics")
-    
-    return metrics
+    paths = model.save(store)
+    print(f"   Saved artifacts to {len(paths)} locations")
+    print(f"   Backend: {store.backend}")
+
+    print("\n" + "=" * 50)
+    print("Training complete!")
+    print("=" * 50)
+
+
+if __name__ == "__main__":
+    main()
 ```
 
 ### Define Flow (`flow.py`)
 
+The flow is a thin Metaflow wrapper around your SDK pipeline:
+
 ```python
-from geronimo.flow import Flow
-from .sdk.pipeline import ScoringPipeline
-from .sdk.model import ProjectModel
+from metaflow import FlowSpec, step, schedule
+from my_pipeline.sdk.pipeline import ScoringPipeline
 
 
-class MyPipeline(Flow):
-    name = "my-pipeline"
-    version = "1.0.0"
-    
-    def run(self):
-        # Train model
-        metrics = ProjectModel().train()
-        
-        # Score data
-        pipeline = ScoringPipeline()
-        pipeline.initialize()
-        result = pipeline.execute()
-        
-        return {"metrics": metrics, "result": result}
+@schedule(daily=True)
+class ScoringFlow(FlowSpec):
+    """Batch scoring flow — wraps SDK pipeline."""
+
+    @step
+    def start(self):
+        """Initialize pipeline and load model."""
+        self.pipeline = ScoringPipeline()
+        self.pipeline.initialize()
+        self.next(self.run_pipeline)
+
+    @step
+    def run_pipeline(self):
+        """Execute the SDK pipeline."""
+        self.result = self.pipeline.execute()
+        self.next(self.end)
+
+    @step
+    def end(self):
+        """Flow complete."""
+        print(f"Pipeline complete: {self.result}")
+
+
+if __name__ == "__main__":
+    ScoringFlow()
 ```
 
 ## 4. Train The Model
 
 ```bash
-python train.py
+uv run python -m my_pipeline.train
 
 ==================================================
 Model Training
@@ -190,13 +299,7 @@ Training complete!
 
 ```bash
 # Execute via the flow.py wrapper
-python flow.py run
-
-Running pylint...
-    Pylint not found, so extra checks are disabled.
-2026-02-15 13:59:30.813 Workflow starting (run-id 1771181970812176):
-2026-02-15 13:59:30.822 [1771181970812176/start/1 (pid 17442)] Task is starting.
-2026-02-15 13:59:31.738 [1771181970812176/start/1 (pid 17442)] Initialized: IrisBatchScoringPipeline(model=IrisBatchModel, schedule=Schedule(0 6 * * *), initialized)
+python -m my_pipeline.flow run
 ```
 
 ## 6. Configure Drift Detection (`sdk/monitoring_config.py`)
@@ -218,7 +321,7 @@ def run(self):
         pass
 ```
 
-## 6. Deploy to Geronimo Deploy Cloud (Coming Soon)
+## 7. Deploy to Geronimo Deploy Cloud (Coming Soon)
 
 ### Step Functions (AWS)
 
@@ -251,7 +354,7 @@ batch:
 
 Generates Airflow DAGs using `KubernetesPodOperator`.
 
-## 7. Configuration Reference
+## 8. Configuration Reference
 
 | Field | Description |
 |-------|-------------|
@@ -262,7 +365,7 @@ Generates Airflow DAGs using `KubernetesPodOperator`.
 | `batch.jobs[].cpu` | CPU units |
 | `batch.jobs[].memory` | Memory in MB |
 
-## 8. Schedule Types
+## 9. Schedule Types
 
 ```python
 Schedule.cron("0 6 * * *")      # Cron expression
@@ -270,7 +373,7 @@ Schedule.daily(hour=6)           # Daily at 6 AM
 Schedule.weekly(day=0, hour=0)   # Sunday midnight
 ```
 
-## 9. Next Steps
+## 10. Next Steps
 
 - [Real-Time Endpoints](getting_started_realtime.md) — API serving
 - [Monitoring](monitoring.md) — Drift detection

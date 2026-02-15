@@ -15,8 +15,10 @@ my-project/
 │   │   ├── pipeline.py           # [batch] BatchPipeline class
 │   │   └── monitoring_config.py  # Thresholds and alerts
 │   ├── app.py                    # [realtime] FastAPI wrapper
+│   ├── agent.py                  # [realtime] MCP agent
 │   ├── flow.py                   # [batch] Metaflow wrapper
-│   └── train.py                  # Training script
+│   ├── train.py                  # Training script
+│   └── monitoring/               # Metrics, alerts, drift
 ```
 
 ---
@@ -25,14 +27,24 @@ my-project/
 
 ### DataSource
 
+Supports multiple source types: `"file"`, `"function"`, and database queries.
+
 ```python
-from geronimo.data_sources import DataSource, Query
+import sys
+from geronimo.data_sources import DataSource, Query, collect_data_sources
 
 # File source
 training_data = DataSource(
     name="training",
     source="file",
     path="data/train.csv",
+)
+
+# Function source — load from custom code
+training_data = DataSource(
+    name="training",
+    source="function",
+    handle=my_loader_function,
 )
 
 # SQL database source
@@ -45,6 +57,9 @@ source = DataSource(
 
 # Load data
 df = source.load(start_date="2024-01-01")
+
+# Auto-collect by naming convention
+training_sources = collect_data_sources(sys.modules[__name__], "training_")
 ```
 
 ### Query
@@ -107,29 +122,79 @@ X = features.transform(prod_df)
 
 ### Model
 
+The model encapsulates data loading, feature fitting, training, and persistence:
+
 ```python
+from typing import Any, Optional
+import numpy as np
+import pandas as pd
+
 from geronimo.models import Model, HyperParams
+from geronimo.artifacts import ArtifactStore
 from .features import ProjectFeatures
-from .data_sources import training_data
+from .data_sources import training_sources
+
 
 class ProjectModel(Model):
     name = "my-model"
     version = "1.0.0"
-    features = ProjectFeatures()
-    data_source = training_data
 
-    def train(self, X, y, params: HyperParams):
+    def __init__(self):
+        super().__init__()
+        self.estimator: Optional[Any] = None
+        self.features: Optional[ProjectFeatures] = None
+        self._is_fitted = False
+
+    def train(self) -> dict:
+        """Self-contained training: loads data, fits features, trains estimator."""
+        df = training_sources[0].load()
+        for source in training_sources[1:]:
+            source_df = source.load()
+            if source.join_spec:
+                df = df.merge(source_df,
+                    left_on=source.join_spec.left_on,
+                    right_on=source.join_spec.right_on,
+                    how=source.join_spec.how)
+
+        y = df["target"].values
+        self.features = ProjectFeatures()
+        X = self.features.fit_transform(df)
+
         from sklearn.ensemble import RandomForestClassifier
+        params = HyperParams(n_estimators=100, max_depth=5, random_state=42)
         self.estimator = RandomForestClassifier(**params.to_dict())
         self.estimator.fit(X, y)
+        self._is_fitted = True
 
-    def predict(self, X):
-        return self.estimator.predict_proba(X)
+        return {"accuracy": self.estimator.score(X, y), "n_samples": len(y)}
+
+    def predict(self, X, return_probabilities: bool = False):
+        """Transform input and generate predictions."""
+        X_transformed = self.features.transform(X)
+        if return_probabilities:
+            return self.estimator.predict_proba(X_transformed)
+        return self.estimator.predict(X_transformed)
+
+    def save(self, store: ArtifactStore) -> list[str]:
+        """Save estimator and features to ArtifactStore."""
+        paths = []
+        paths.append(store.save("estimator", self.estimator,
+                                artifact_type=type(self.estimator).__name__))
+        paths.append(store.save("features", self.features,
+                                artifact_type="ProjectFeatures"))
+        return paths
+
+    def load(self, store: ArtifactStore) -> None:
+        """Restore estimator and features from ArtifactStore."""
+        self.estimator = store.get("estimator")
+        self.features = store.get("features")
+        self._is_fitted = True
 
 # Usage
 model = ProjectModel()
-model.train(X, y, HyperParams(n_estimators=100, max_depth=5))
-model.save(store)
+metrics = model.train()           # Self-contained training
+store = ArtifactStore(project="my-model", version="1.0.0")
+model.save(store)                  # Persist to artifact store
 ```
 
 ### HyperParams
@@ -156,37 +221,55 @@ for combo in params.grid():
 ### Endpoint
 
 ```python
+import pandas as pd
 from geronimo.serving import Endpoint
 from .model import ProjectModel
+
 
 class PredictEndpoint(Endpoint):
     model_class = ProjectModel
 
     def preprocess(self, request: dict):
         """Transform request to model input."""
-        import pandas as pd
-        df = pd.DataFrame([request["features"]])
-        return self.model.features.transform(df)
+        if "features" in request:
+            req = request["features"]
+        else:
+            req = request
+        return pd.DataFrame([req])
 
     def postprocess(self, prediction):
         """Format model output as response."""
-        return {"score": float(prediction[0])}
+        if hasattr(prediction, "tolist"):
+            prediction = prediction.tolist()
+        if isinstance(prediction, list) and len(prediction) == 1:
+            prediction = prediction[0]
+        return {"result": prediction}
 
-# Usage (handled by app.py wrapper)
-endpoint = PredictEndpoint()
-endpoint.load()
-result = endpoint.handle({"features": {"age": 30, "income": 50000}})
+    def initialize(self, project=None, version=None):
+        """Load model from ArtifactStore."""
+        super().initialize(project=project, version=version)
+
+    def handle(self, request: dict) -> dict:
+        """Handle prediction request."""
+        return super().handle(request)
 ```
 
 ### app.py Wrapper
 
-The generated `app.py` is a thin FastAPI wrapper (~50 lines):
+The generated `app.py` integrates your endpoint with FastAPI, monitoring, and MCP:
 
 ```python
 from my_model.sdk.endpoint import PredictEndpoint
+from my_model.monitoring.middleware import MonitoringMiddleware
+from my_model.monitoring.metrics import MetricsCollector
 
-app = FastAPI(title="my-model")
+app = FastAPI(title="my-model", lifespan=lifespan)
 app.add_middleware(MonitoringMiddleware, collector=metrics)
+
+# MCP agent integration (reads mcp_enabled from geronimo.yaml)
+if ENABLE_MCP:
+    from my_model.agent import mcp
+    app.mount("/mcp", mcp.http_app())
 
 @app.post("/predict")
 def predict(request: PredictRequest):
@@ -201,42 +284,62 @@ def predict(request: PredictRequest):
 ### BatchPipeline
 
 ```python
-from geronimo.batch import BatchPipeline, Schedule
+from geronimo.batch import BatchPipeline
+from geronimo.batch.schedule import Schedule
 from .model import ProjectModel
-from .data_sources import scoring_data
+from .data_sources import training_data
+from .monitoring_config import create_drift_detector, check_drift
+
 
 class ScoringPipeline(BatchPipeline):
     model_class = ProjectModel
-    data_source = scoring_data
     schedule = Schedule.daily(hour=6)
 
     def run(self):
         """Execute batch scoring logic."""
-        data = self.data_source.load()
-        X = self.model.features.transform(data)
-        predictions = self.model.predict(X)
-        self.save_results(predictions, "batch/output/scores.parquet")
-        return {"samples_scored": len(predictions)}
+        df = training_data.load()
+        X = self.model.features.transform(df)
 
-# Usage (handled by flow.py wrapper)
-pipeline = ScoringPipeline()
-pipeline.initialize()
-result = pipeline.execute()
+        # Check for drift
+        detector = create_drift_detector(reference_data=df)
+        drift_result = check_drift(detector, df)
+        if drift_result["has_drift"]:
+            print(f"⚠ Drift detected")
+
+        predictions = self.model.predict(X)
+        results = df.copy()
+        results["prediction"] = predictions
+        return results
 ```
 
 ### flow.py Wrapper
 
-The generated `flow.py` is a thin Metaflow wrapper (~40 lines):
+The generated `flow.py` is a thin Metaflow wrapper:
 
 ```python
+from metaflow import FlowSpec, step, schedule
 from my_pipeline.sdk.pipeline import ScoringPipeline
+
 
 @schedule(daily=True)
 class ScoringFlow(FlowSpec):
     @step
-    def run_pipeline(self):
+    def start(self):
+        """Initialize pipeline and load model."""
         self.pipeline = ScoringPipeline()
+        self.pipeline.initialize()
+        self.next(self.run_pipeline)
+
+    @step
+    def run_pipeline(self):
+        """Execute the SDK pipeline."""
         self.result = self.pipeline.execute()
+        self.next(self.end)
+
+    @step
+    def end(self):
+        """Flow complete."""
+        print(f"Pipeline complete: {self.result}")
 ```
 
 ### Schedule & Trigger

@@ -115,6 +115,15 @@ Every project is automatically exposed as an [MCP tool](https://modelcontextprot
 
 ## Getting Started
 
+### Installation Options
+
+```bash
+pip install geronimo                  # Core
+pip install geronimo[mlflow]          # + MLflow
+pip install geronimo[databases]       # + Snowflake, Postgres Connectors
+pip install geronimo[all]             # Everything
+```
+
 ### 1. Install and Configure
 
 ```bash
@@ -203,15 +212,6 @@ geronimo deploy up --project my-model --target gdc
 - [Monitoring & Drift Detection](docs/tutorials/monitoring.md)
 - [MCP Integration](docs/tutorials/mcp_integration.md)
 - [SDK Reference](docs/tutorials/sdk_reference.md)
-
-## Installation Options
-
-```bash
-pip install geronimo                  # Core
-pip install geronimo[mlflow]          # + MLflow
-pip install geronimo[databases]       # + Snowflake, Postgres
-pip install geronimo[all]             # Everything
-```
 
 ---
 

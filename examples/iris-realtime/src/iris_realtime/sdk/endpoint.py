@@ -1,5 +1,7 @@
 """Endpoint definition - handle incoming prediction requests."""
 
+import pandas as pd
+
 from geronimo.serving import Endpoint
 from .model import IrisRealtimeModel
 
@@ -68,6 +70,12 @@ class IrisRealtimeEndpoint(Endpoint):
         Returns:
             JSON-serializable response
         """
+        # Convert numpy types to native Python for JSON serialization
+        if hasattr(prediction, "tolist"):
+            prediction = prediction.tolist()
+        # Unwrap single-element lists (single prediction)
+        if isinstance(prediction, list) and len(prediction) == 1:
+            prediction = prediction[0]
         return {"result": prediction}
     
     def initialize(self, project=None, version=None):

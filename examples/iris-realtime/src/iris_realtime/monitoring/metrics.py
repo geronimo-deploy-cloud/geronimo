@@ -76,6 +76,8 @@ class MetricsCollector:
     """Collects and publishes metrics for ML model monitoring.
 
     Supports multiple backends (CloudWatch, local file, etc.).
+    Tracks latency percentiles, request counts, and error counts
+    in-memory for the /metrics summary endpoint.
     """
 
     def __init__(
@@ -101,6 +103,10 @@ class MetricsCollector:
             "Project": project_name,
             "Environment": environment,
         }
+        # In-memory aggregates for the /metrics summary endpoint
+        self._latency_stats = LatencyStats()
+        self._request_count: int = 0
+        self._error_count: int = 0
 
     def record(
         self,
@@ -129,8 +135,15 @@ class MetricsCollector:
         )
         self._buffer.add(metric)
 
+        # Update in-memory aggregates
+        if metric_type == MetricType.REQUEST_COUNT:
+            self._request_count += int(value)
+        elif metric_type == MetricType.ERROR_COUNT:
+            self._error_count += int(value)
+
     def record_latency(self, latency_ms: float) -> None:
         """Record a latency measurement in milliseconds."""
+        self._latency_stats.record(latency_ms)
         self.record(MetricType.LATENCY_MEAN, latency_ms, unit="Milliseconds")
 
     def record_error(self) -> None:
@@ -141,6 +154,24 @@ class MetricsCollector:
         """Record a prediction value for distribution tracking."""
         self.record(MetricType.PREDICTION_COUNT, 1.0, unit="Count")
         self.record(MetricType.PREDICTION_MEAN, float(prediction), unit="None")
+
+    # ----- Summary accessors (used by /metrics endpoint) -----
+
+    def get_latency_p50(self) -> float:
+        """Get the 50th percentile (median) latency in ms."""
+        return self._latency_stats.p50
+
+    def get_latency_p99(self) -> float:
+        """Get the 99th percentile latency in ms."""
+        return self._latency_stats.p99
+
+    def get_request_count(self) -> int:
+        """Get total request count."""
+        return self._request_count
+
+    def get_error_count(self) -> int:
+        """Get total error count."""
+        return self._error_count
 
     def flush(self) -> int:
         """Flush buffered metrics to the backend.

@@ -11,8 +11,11 @@ JOIN BEHAVIOR:
 
 This module is imported by model.py and pipeline.py to load training/scoring data.
 """
-
 import sys
+
+import pandas as pd
+from sklearn.datasets import load_iris
+
 from geronimo.data_sources import DataSource, JoinSpec, Query, collect_data_sources
 
 
@@ -52,4 +55,5 @@ training_data = DataSource(
 # =============================================================================
 
 # Automatically collect training and production sources from module
-training_sources, production_sources = collect_data_sources(sys.modules[__name__])
+training_sources = collect_data_sources(sys.modules[__name__], "training_")
+production_sources = collect_data_sources(sys.modules[__name__], "production_") 

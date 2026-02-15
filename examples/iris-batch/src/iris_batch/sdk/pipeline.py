@@ -6,8 +6,9 @@ from .model import IrisBatchModel
 
 # For this example, we'll just re-score the training data as a demo
 from .data_sources import training_data
+from .monitoring_config import create_drift_detector, check_drift
 
-class ScoringPipeline(BatchPipeline):
+class IrisBatchScoringPipeline(BatchPipeline):
     """Batch scoring pipeline.
     
     This is a working demo pipeline. Replace run() with your actual 
@@ -52,10 +53,17 @@ class ScoringPipeline(BatchPipeline):
 
         # 2. Transform data using fitted feature transformers from training
         X = self.model.features.transform(df)
+
+        # 2.5 Check for drift - Note: This is just a demo. Reference data should be a different source than df as shown here
+        detector = create_drift_detector(reference_data=df)
+        drift_result = check_drift(detector, df)
+        if drift_result["has_drift"]:
+            # In production, you might want to pause the pipeline or alert on drift.
+            pass
         
         # 3. Run predictions
         print(f"Scoring {len(X)} records...")
-        probabilities = self.model.predict_proba(X)
+        probabilities = self.model.predict(X, return_probabilities=True)
         predictions = self.model.predict(X)
         
         # 4. Format results

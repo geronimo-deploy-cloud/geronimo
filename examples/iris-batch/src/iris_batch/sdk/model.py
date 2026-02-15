@@ -60,12 +60,12 @@ class IrisBatchModel(Model):
         
         # Initialize and fit features
         self.features = IrisBatchFeatures()
-        X = self.features.fit_transform(df)
+        X_transformed = self.features.fit_transform(df)
         
         from sklearn.ensemble import RandomForestClassifier
         params = HyperParams(n_estimators=100, max_depth=5, random_state=42)
         self.estimator = RandomForestClassifier(**params.to_dict())
-        self.estimator.fit(X, y)
+        self.estimator.fit(X_transformed, y)
         self._is_fitted = True
         
         # Calculate training accuracy

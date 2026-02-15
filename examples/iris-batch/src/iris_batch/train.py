@@ -1,11 +1,11 @@
-"""Training script for iris-batchtest.
+"""Training script for iris-batch
 
 Usage:
-    uv run python -m iris_batchtest.train
+    uv run python -m iris_batch
 """
 
 from geronimo.artifacts import ArtifactStore
-from iris_batchtest.sdk.model import IrisBatchtestModel
+from iris_batch.sdk.model import IrisBatchModel
 
 
 def main():
@@ -17,7 +17,7 @@ def main():
     # 1. Initialize and train model
     # Data loading and feature engineering are handled by the model class
     print("\n1. Training model...")
-    model = IrisBatchtestModel()
+    model = IrisBatchModel()
     
     # Train (logic encapsulated in model.train())
     metrics = model.train()

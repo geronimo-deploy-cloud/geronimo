@@ -85,7 +85,7 @@ def create_drift_detector(reference_data: pd.DataFrame = None):
         reference_data=reference_data,
         # TODO: Configure feature types for your model
         # categorical_features=["category", "region"],
-        # numerical_features=["feature_1", "feature_2"],
+        numerical_features=["sepal_length", "sepal_width", "petal_length", "petal_width"],
         # target_column="prediction",
     )
 

@@ -12,9 +12,8 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 try:
-    from evidently.report import Report
-    from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
-    from evidently import ColumnMapping
+    from evidently import Report, DataDefinition, Dataset
+    from evidently.presets import DataDriftPreset
     EVIDENTLY_AVAILABLE = True
 except ImportError:
     EVIDENTLY_AVAILABLE = False
@@ -39,15 +38,16 @@ class DriftDetector:
             numerical_features: List of numerical column names.
             target_column: Name of the target/prediction column.
         """
-        self.reference_data = reference_data
-        self.column_mapping = ColumnMapping()
+        self.data_definition = DataDefinition()
         
         if categorical_features:
-            self.column_mapping.categorical_features = categorical_features
+            self.data_definition.categorical_columns = categorical_features
         if numerical_features:
-            self.column_mapping.numerical_features = numerical_features
+            self.data_definition.numerical_columns = numerical_features
         if target_column:
-            self.column_mapping.target = target_column
+            self.data_definition.target_column = target_column
+
+        self.reference_data = Dataset.from_pandas(reference_data, data_definition=self.data_definition)
 
     def calculate_drift(
         self,
@@ -69,17 +69,18 @@ class DriftDetector:
         if self.reference_data is None:
             return {"error": "No reference data provided"}
 
+        # apply column mapping to current data
+        current_data = Dataset.from_pandas(current_data, data_definition=self.data_definition)
+
         # configure report
         report = Report(metrics=[
-            DataDriftPreset(), 
-            TargetDriftPreset()
+            DataDriftPreset()
         ])
 
         try:
-            report.run(
+            snapshot = report.run(
                 reference_data=self.reference_data,
                 current_data=current_data,
-                column_mapping=self.column_mapping
             )
             
             # Save HTML report
@@ -87,13 +88,13 @@ class DriftDetector:
                 report.save_html(report_path)
 
             # Extract key metrics
-            result = report.as_dict()
+            result = snapshot.dict()
             
-            drift_share = result["metrics"][0]["result"]["drift_share"]
-            dataset_drift = result["metrics"][0]["result"]["dataset_drift"]
+            drift_share = result["metrics"][0]["value"]["share"]
+            drift_count = result["metrics"][0]["value"]["count"]
             
             return {
-                "dataset_drift": dataset_drift,
+                "drift_count": drift_count,
                 "drift_share": drift_share,
                 "timestamp": datetime.utcnow().isoformat(),
                 "metrics": result["metrics"]

@@ -54,11 +54,11 @@ class ProjectNameRule(ValidationRule):
         # Check for valid characters
         import re
 
-        if not re.match(r"^[a-z][a-z0-9-]*[a-z0-9]$", name):
+        if not re.match(r"^[a-z]([a-z0-9-]*[a-z0-9])?$", name):
             return RuleResult(
                 passed=False,
                 message=f"Project name '{name}' must be lowercase, start with letter, "
-                "and contain only letters, numbers, and hyphens",
+                "and contain only letters, numbers, and hyphens (can end with number or letter)",
                 rule_name=self.name,
             )
 

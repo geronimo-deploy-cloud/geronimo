@@ -223,6 +223,7 @@ class ProjectGenerator(BaseGenerator):
         # Enable batch config with a starter job for batch projects
         if self.template == "batch":
             from geronimo.config.schema import BatchConfig, BatchJobConfig
+
             config.batch = BatchConfig(
                 enabled=True,
                 jobs=[

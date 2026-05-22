@@ -143,126 +143,7 @@ def init(
         raise typer.Exit(code=1)
 
 
-def _generate_sdk_scaffold(name: str, output_dir: str, template: str) -> None:
-    """Generate Geronimo SDK scaffold files."""
-    from pathlib import Path
 
-    project_path = Path(output_dir) / name
-    sdk_dir = project_path / "src" / name.replace("-", "_") / "sdk"
-    sdk_dir.mkdir(parents=True, exist_ok=True)
-
-    # SDK __init__.py
-    (sdk_dir / "__init__.py").write_text('"""Geronimo SDK components."""\n')
-
-    # Features file
-    (sdk_dir / "features.py").write_text('''"""Feature definitions for the model."""
-
-from geronimo.features import FeatureSet, Feature
-# from sklearn.preprocessing import StandardScaler, OneHotEncoder
-
-
-class ProjectFeatures(FeatureSet):
-    """Define your features here.
-
-    Example:
-        age = Feature(dtype='numeric', transformer=StandardScaler())
-        category = Feature(dtype='categorical', encoder=OneHotEncoder())
-    """
-
-    pass
-''')
-
-    # Data sources file
-    (sdk_dir / "data_sources.py").write_text('''"""Data source definitions."""
-
-from geronimo.data_sources import DataSource, Query
-
-# Example query-based source:
-# training_data = DataSource(
-#     name="training",
-#     source="snowflake",
-#     query=Query.from_file("queries/train.sql"),
-# )
-
-# Example file-based source:
-# local_data = DataSource(name="local", source="file", path="data/train.csv")
-''')
-
-    # Model file
-    (sdk_dir / "model.py").write_text(f'''"""Model definition."""
-
-from geronimo.models import Model, HyperParams
-
-# from .features import ProjectFeatures
-
-
-class ProjectModel(Model):
-    """Main model class."""
-
-    name = "{name}"
-    version = "1.0.0"
-    # features = ProjectFeatures()
-
-    def train(self, X, y, params: HyperParams) -> None:
-        """Train the model."""
-        # self.estimator = YourModel(**params.to_dict())
-        # self.estimator.fit(X, y)
-        raise NotImplementedError("Implement train() method")
-
-    def predict(self, X):
-        """Generate predictions."""
-        # return self.estimator.predict(X)
-        raise NotImplementedError("Implement predict() method")
-''')
-
-    # Endpoint or pipeline based on template
-    if template in ("realtime", "both"):
-        (sdk_dir / "endpoint.py").write_text(f'''"""Endpoint definition for real-time serving."""
-
-from geronimo.serving import Endpoint
-
-# from .model import ProjectModel
-
-
-class PredictEndpoint(Endpoint):
-    """Prediction endpoint."""
-
-    # model_class = ProjectModel
-
-    def preprocess(self, request: dict):
-        """Preprocess incoming request."""
-        # df = pd.DataFrame([request["data"]])
-        # return self.model.features.transform(df)
-        raise NotImplementedError("Implement preprocess() method")
-
-    def postprocess(self, prediction):
-        """Postprocess model output."""
-        # return {{"score": float(prediction[0])}}
-        raise NotImplementedError("Implement postprocess() method")
-''')
-
-    if template in ("batch", "both"):
-        (sdk_dir / "pipeline.py").write_text(f'''"""Batch pipeline definition."""
-
-from geronimo.batch import BatchPipeline, Schedule
-
-# from .model import ProjectModel
-
-
-class ScoringPipeline(BatchPipeline):
-    """Batch scoring pipeline."""
-
-    # model_class = ProjectModel
-    schedule = Schedule.daily(hour=6)
-
-    def run(self):
-        """Main pipeline logic."""
-        # data = self.model.features.data_source.load()
-        # X = self.model.features.transform(data)
-        # predictions = self.model.predict(X)
-        # self.save_results(predictions)
-        raise NotImplementedError("Implement run() method")
-''')
 
 
 # ============================================================================
@@ -552,6 +433,11 @@ def deploy_up(
         "-s",
         help="Pulumi stack name.",
     ),
+    wait: bool = typer.Option(
+        True,
+        "--wait/--no-wait",
+        help="Wait for deployment to complete.",
+    ),
 ) -> None:
     """Deploy infrastructure to the cloud.
     
@@ -574,7 +460,7 @@ def deploy_up(
             stack_name=stack,
         )
         
-        result = deploy(config, component=component)
+        result = deploy(config, component=component, wait=wait)
         
         console.print(
             Panel(
@@ -637,8 +523,7 @@ def deploy_destroy(
     console.print(f"\n[bold red]Destroying {project}/{stack}...[/bold red]")
     
     try:
-        from geronimo.deploy.config import DeploymentConfig
-        from geronimo.deploy.providers.aws import destroy_aws
+        from geronimo.deploy import destroy, DeploymentConfig
         
         config = DeploymentConfig(
             project=project,
@@ -646,14 +531,55 @@ def deploy_destroy(
             stack_name=stack,
         )
         
-        if target == "aws":
-            destroy_aws(config)
-        else:
-            console.print(f"[yellow]Destroy not implemented for {target}[/yellow]")
-            raise typer.Exit(code=1)
+        destroy(config)
         
         console.print("[green]✓ Resources destroyed.[/green]")
         
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@deploy_app.command("status")
+def deploy_status(
+    deployment_id: str = typer.Option(
+        ...,
+        "--deployment-id",
+        "-d",
+        help="Deployment ID.",
+    ),
+) -> None:
+    """Get deployment status."""
+    from geronimo.deploy_cloud.client import GeronimoCloudClient
+    
+    client = GeronimoCloudClient()
+    try:
+        status_data = client.get_status(deployment_id)
+        console.print(f"[bold blue]Status for {deployment_id}:[/bold blue] {status_data.get('status')}")
+        if 'error' in status_data and status_data['error']:
+            console.print(f"[red]Error:[/red] {status_data['error']}")
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@deploy_app.command("logs")
+def deploy_logs(
+    deployment_id: str = typer.Option(
+        ...,
+        "--deployment-id",
+        "-d",
+        help="Deployment ID.",
+    ),
+) -> None:
+    """Get deployment logs."""
+    from geronimo.deploy_cloud.client import GeronimoCloudClient
+    
+    client = GeronimoCloudClient()
+    try:
+        logs = client.get_logs(deployment_id)
+        console.print(f"[bold blue]Logs for {deployment_id}:[/bold blue]")
+        console.print(logs)
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise typer.Exit(code=1)

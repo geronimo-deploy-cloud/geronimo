@@ -36,7 +36,7 @@ class ArtifactBackend(Protocol):
         )
     """
     
-    def save(self, name: str, artifact: Any, metadata: dict) -> str:
+    def save(self, name: str, artifact: Any, metadata: dict) -> tuple[str, int]:
         """Save an artifact.
         
         Args:
@@ -45,7 +45,7 @@ class ArtifactBackend(Protocol):
             metadata: Artifact metadata dict
         
         Returns:
-            URI or path where artifact was saved
+            Tuple of (URI or path where artifact was saved, actual size in bytes)
         """
         ...
     

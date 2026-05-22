@@ -33,13 +33,14 @@ def get_available_targets() -> list[str]:
     return ["aws", "gcp", "azure", "gdc"]
 
 
-def deploy(config: DeploymentConfig, component: str | None = None) -> dict:
+def deploy(config: DeploymentConfig, component: str | None = None, wait: bool = True) -> dict:
     """Deploy infrastructure using Pulumi.
     
     Args:
         config: Deployment configuration
         component: Optional component to deploy (artifacts, serving, batch)
                    If None, deploys all configured components
+        wait: Whether to wait for deployment completion
     
     Returns:
         Dict with deployment outputs (URLs, resource IDs, etc.)
@@ -63,7 +64,7 @@ def deploy(config: DeploymentConfig, component: str | None = None) -> dict:
     elif config.target == "gdc":
         from geronimo.deploy_cloud import GeronimoCloudTarget
         target = GeronimoCloudTarget(config)
-        return target.deploy(component)
+        return target.deploy(component, wait=wait)
     else:
         raise ValueError(f"Unknown target: {config.target}")
 

@@ -55,7 +55,7 @@ class LocalArtifactBackend(ArtifactBackend):
         self.artifact_path.mkdir(parents=True, exist_ok=True)
         self._metadata_file = self.artifact_path / "metadata.json"
     
-    def save(self, name: str, artifact: Any, metadata: dict) -> str:
+    def save(self, name: str, artifact: Any, metadata: dict) -> tuple[str, int]:
         """Save an artifact to local filesystem.
         
         Args:
@@ -64,7 +64,7 @@ class LocalArtifactBackend(ArtifactBackend):
             metadata: Artifact metadata dict.
             
         Returns:
-            Path to saved artifact file.
+            Tuple of (Path to saved artifact file, file size in bytes).
         """
         artifact_file = self.artifact_path / f"{name}.pkl"
         
@@ -73,10 +73,12 @@ class LocalArtifactBackend(ArtifactBackend):
         
         logger.debug(f"Saved artifact '{name}' to {artifact_file}")
         
-        # Update metadata index
-        self._save_to_metadata_index(name, artifact_file.stat().st_size, metadata)
+        size_bytes = artifact_file.stat().st_size
         
-        return str(artifact_file)
+        # Update metadata index
+        self._save_to_metadata_index(name, size_bytes, metadata)
+        
+        return str(artifact_file), size_bytes
     
     def load(self, uri: str) -> Any:
         """Load an artifact by name or path.

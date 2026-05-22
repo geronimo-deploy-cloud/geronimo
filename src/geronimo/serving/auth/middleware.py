@@ -3,7 +3,7 @@
 import logging
 from collections import defaultdict
 from contextvars import ContextVar
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Callable, Optional
 
@@ -45,7 +45,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
     """FastAPI middleware for API key authentication.
 
     Includes rate limiting for failed authentication attempts
-    to prevent brute-force attacks (SOC2 compliance).
+    to prevent brute-force attacks (SOC2 compliance). 
+    WARNING: In-memory rate limiting is process-local. For multi-worker 
+    or multi-instance deployments (e.g., Gunicorn/ECS), use a shared 
+    backing store like Redis.
 
     Example:
         ```python
@@ -60,7 +63,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     """
 
     # Paths that don't require authentication
-    PUBLIC_PATHS = {"/health", "/healthz", "/ready", "/docs", "/openapi.json"}
+    PUBLIC_PATHS = {"/health", "/healthz", "/ready", "/docs", "/openapi.json", "/metrics"}
 
     # Rate limiting configuration
     MAX_FAILED_ATTEMPTS = 5  # Maximum failed attempts before lockout
@@ -95,7 +98,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         Returns:
             True if rate limited, False otherwise.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # Check if currently locked out
         if client_ip in self._lockouts:
@@ -115,7 +118,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         Args:
             client_ip: Client IP address.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         cutoff = now - self.ATTEMPT_WINDOW
         
         # Clean old attempts and add new one
@@ -230,6 +233,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         try:
             import jwt
+        except ImportError:
+            raise ImportError(
+                "PyJWT is required for JWT authentication. "
+                "Install with: pip install geronimo[jwt]"
+            )
 
             payload = jwt.decode(
                 token,

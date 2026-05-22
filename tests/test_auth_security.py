@@ -6,6 +6,7 @@ Tests for SOC2 compliance requirements including:
 - Lockout mechanisms
 """
 
+import json
 import pytest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -104,7 +105,7 @@ class TestRateLimiting:
         client_ip = "192.168.1.101"
         
         # Set an expired lockout
-        mock_middleware._lockouts[client_ip] = datetime.utcnow() - timedelta(minutes=1)
+        mock_middleware._lockouts[client_ip] = datetime.now(timezone.utc) - timedelta(minutes=1)
         
         # Should not be rate limited (expired)
         assert mock_middleware._is_rate_limited(client_ip) is False
@@ -129,7 +130,7 @@ class TestRateLimiting:
         client_ip = "192.168.1.103"
         
         # Add old timestamp directly
-        old_time = datetime.utcnow() - timedelta(minutes=10)
+        old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
         mock_middleware._failed_attempts[client_ip] = [old_time]
         
         # Record new attempt - should clean old one

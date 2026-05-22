@@ -72,7 +72,7 @@ class TestMLFlowArtifactBackend:
         # Prevent file deletion so we can verify content
         with patch("geronimo.artifacts.mlflow_backend.os.unlink"):
             # Execute
-            uri = backend.save("test_artifact", data, metadata)
+            uri, size = backend.save("test_artifact", data, metadata)
 
         # Verify
         mock_mlflow.start_run.assert_called()

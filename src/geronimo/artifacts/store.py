@@ -1,7 +1,7 @@
 """ArtifactStore for versioned ML artifact management."""
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel
@@ -196,15 +196,15 @@ class ArtifactStore:
         }
 
         # Delegate to backend
-        uri = self._backend_impl.save(name, artifact, meta_dict)
+        uri, size_bytes = self._backend_impl.save(name, artifact, meta_dict)
         
         # Keep local metadata cache in sync
         self._metadata[name] = ArtifactMetadata(
             name=name,
             version=self.version,
             artifact_type=artifact_type,
-            created_at=datetime.utcnow(),
-            size_bytes=0,  # Backend may have actual size
+            created_at=datetime.now(timezone.utc),
+            size_bytes=size_bytes,  # Backend may have actual size
             tags=tags,
         )
         

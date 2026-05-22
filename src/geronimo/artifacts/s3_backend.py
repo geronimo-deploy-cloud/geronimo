@@ -54,7 +54,7 @@ class S3ArtifactBackend(ArtifactBackend):
         import boto3
         return boto3.client("s3")
     
-    def save(self, name: str, artifact: Any, metadata: dict) -> str:
+    def save(self, name: str, artifact: Any, metadata: dict) -> tuple[str, int]:
         """Save an artifact to S3.
         
         Args:
@@ -63,7 +63,7 @@ class S3ArtifactBackend(ArtifactBackend):
             metadata: Artifact metadata dict.
             
         Returns:
-            S3 URI of saved artifact.
+            Tuple of (S3 URI of saved artifact, actual size in bytes).
         """
         s3 = self._get_s3_client()
         key = f"{self._prefix}/{name}.pkl"
@@ -83,7 +83,7 @@ class S3ArtifactBackend(ArtifactBackend):
         # Update metadata index in S3
         self._save_to_metadata_index(name, size_bytes, metadata)
         
-        return f"s3://{self.bucket}/{key}"
+        return f"s3://{self.bucket}/{key}", size_bytes
     
     def load(self, uri: str) -> Any:
         """Load an artifact by name or S3 URI.

@@ -111,6 +111,9 @@ class InfrastructureConfig(BaseModel):
     security_groups: Optional[list[str]] = Field(
         default=None, description="Security group IDs"
     )
+    gpu: Optional[str] = Field(
+        default=None, description="Requested GPU type, e.g. nvidia-tesla-t4"
+    )
 
 
 class AlertConditions(BaseModel):
@@ -152,9 +155,10 @@ class DriftDetectionConfig(BaseModel):
     """Drift detection configuration."""
 
     enabled: bool = Field(default=False, description="Enable drift detection")
-    s3_bucket: str = Field(
+    storage_bucket: str = Field(
         default="model-monitoring",
-        description="S3 bucket for storing snapshots and reports",
+        description="Object storage bucket for storing snapshots and reports",
+        alias="s3_bucket",  # keep backwards compatibility if loaded from older config
     )
     sampling_rate: float = Field(
         default=0.05,
@@ -241,7 +245,8 @@ class DeploymentConfig(BaseModel):
         description="Deployment environments",
     )
     container_registry: Optional[str] = Field(
-        default=None, description="ECR registry URL (auto-generated if not provided)"
+        default=None,
+        description="Container registry URL (auto-generated if not provided)",
     )
 
 
@@ -267,9 +272,10 @@ class BatchJobConfig(BaseModel):
 class StepFunctionsConfig(BaseModel):
     """AWS Step Functions backend configuration."""
 
-    s3_root: str = Field(
+    object_store_root: str = Field(
         default="s3://metaflow-data",
-        description="S3 root for Metaflow artifacts",
+        description="Object storage root for Metaflow artifacts",
+        alias="s3_root",
     )
     batch_queue: Optional[str] = Field(
         default=None, description="AWS Batch queue name"
@@ -325,5 +331,5 @@ class GeronimoConfig(BaseModel):
     )
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
     deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)
-    batch: BatchConfig = Field(default_factory=BatchConfig)
+    batch: Optional[BatchConfig] = Field(default=None)
 

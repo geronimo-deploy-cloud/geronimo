@@ -90,7 +90,7 @@ class GeronimoDeployCloudArtifactBackend(ArtifactBackend):
                 )
             return self.project, self.version, uri
 
-    def save(self, name: str, artifact: Any, metadata: dict) -> str:
+    def save(self, name: str, artifact: Any, metadata: dict) -> tuple[str, int]:
         """Save an artifact to the cloud.
 
         Args:
@@ -99,7 +99,7 @@ class GeronimoDeployCloudArtifactBackend(ArtifactBackend):
             metadata: Artifact metadata.
 
         Returns:
-            S3 URI of the saved artifact.
+            Tuple of (S3 URI of the saved artifact, actual size in bytes).
 
         Raises:
             RuntimeError: If not authenticated.
@@ -157,7 +157,7 @@ class GeronimoDeployCloudArtifactBackend(ArtifactBackend):
                 resp.raise_for_status()
 
             logger.info(f"Successfully saved artifact '{name}' to {s3_uri}")
-            return s3_uri
+            return s3_uri, size_bytes
 
         finally:
             if os.path.exists(temp_path):

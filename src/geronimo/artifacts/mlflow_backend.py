@@ -111,7 +111,7 @@ class MLFlowArtifactBackend(ArtifactBackend):
             
         return None
 
-    def save(self, name: str, artifact: Any, metadata: dict) -> str:
+    def save(self, name: str, artifact: Any, metadata: dict) -> tuple[str, int]:
         """Save an artifact to MLflow.
         
         Args:
@@ -120,7 +120,7 @@ class MLFlowArtifactBackend(ArtifactBackend):
             metadata: Artifact metadata dict.
             
         Returns:
-            Artifact URI.
+            Tuple of (Artifact URI, actual size in bytes).
         """
         import mlflow
         
@@ -131,6 +131,7 @@ class MLFlowArtifactBackend(ArtifactBackend):
         with tempfile.NamedTemporaryFile(suffix=".pkl", delete=False) as f:
             pickle.dump(artifact, f)
             temp_path = f.name
+            size_bytes = os.path.getsize(temp_path)
             
         try:
             # Log artifact to MLflow
@@ -151,7 +152,7 @@ class MLFlowArtifactBackend(ArtifactBackend):
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
                 
-        return artifact_uri
+        return artifact_uri, size_bytes
 
     def load(self, uri: str) -> Any:
         """Load an artifact.

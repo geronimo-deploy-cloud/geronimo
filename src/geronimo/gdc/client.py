@@ -97,7 +97,8 @@ class GeronimoCloudClient:
         # 2. Upload artifacts
         with open(zip_path, "rb") as f:
             with transfer_client(operation="upload_deployment") as client:
-                client.put(upload_url, content=f)
+                resp = client.put(upload_url, content=f)
+                resp.raise_for_status()
             
         # 3. Trigger build/deploy
         with api_client(self.api_url, self.headers, operation="start_deployment") as client:
@@ -111,6 +112,17 @@ class GeronimoCloudClient:
             resp = client.get(f"/deployments/{deployment_id}")
             resp.raise_for_status()
             return resp.json()
+
+    def get_active_deployment(self, project_name: str) -> Optional[str]:
+        """Get the ID of the active deployment for a project."""
+        with api_client(self.api_url, self.headers, operation="get_deployments") as client:
+            resp = client.get("/deployments", params={"project": project_name})
+            resp.raise_for_status()
+            deployments = resp.json().get("deployments", [])
+            for dep in deployments:
+                if dep.get("status") == "active":
+                    return dep.get("id")
+            return None
 
     def get_logs(self, deployment_id: str) -> str:
         """Get build/runtime logs."""

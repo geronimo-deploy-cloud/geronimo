@@ -43,7 +43,7 @@ class TestGeronimoDeployCloudArtifactBackend:
         }
         
         # Execute
-        uri = backend.save(
+        uri, size = backend.save(
             "model", 
             {"data": 123}, 
             metadata={"type": "model"}
@@ -157,7 +157,7 @@ class TestArtifactStoreIntegration:
         with patch("geronimo.artifacts.gdc_backend.GeronimoDeployCloudArtifactBackend") as MockBackend:
             # Setup mock
             mock_instance = MagicMock()
-            mock_instance.save.return_value = "s3://uri"
+            mock_instance.save.return_value = ("s3://uri", 100)
             MockBackend.return_value = mock_instance
             
             # Create store

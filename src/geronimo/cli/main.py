@@ -550,7 +550,7 @@ def deploy_status(
     ),
 ) -> None:
     """Get deployment status."""
-    from geronimo.deploy_cloud.client import GeronimoCloudClient
+    from geronimo.gdc.client import GeronimoCloudClient
     
     client = GeronimoCloudClient()
     try:
@@ -573,7 +573,7 @@ def deploy_logs(
     ),
 ) -> None:
     """Get deployment logs."""
-    from geronimo.deploy_cloud.client import GeronimoCloudClient
+    from geronimo.gdc.client import GeronimoCloudClient
     
     client = GeronimoCloudClient()
     try:

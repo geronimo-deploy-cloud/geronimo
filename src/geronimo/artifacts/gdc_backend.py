@@ -7,8 +7,8 @@ import tempfile
 from typing import Any, Optional
 
 from geronimo.artifacts.protocol import ArtifactBackend
-from geronimo.deploy_cloud.client import GeronimoCloudClient
-from geronimo.deploy_cloud.http_utils import api_client, transfer_client, TRANSFER_TIMEOUT
+from geronimo.gdc.client import GeronimoCloudClient
+from geronimo.gdc.http_utils import api_client, transfer_client, TRANSFER_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

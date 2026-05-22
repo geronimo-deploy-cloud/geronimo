@@ -12,8 +12,8 @@ Use this module when you want a fully managed deployment experience instead of
 provisioning your own AWS resources.
 """
 
-from geronimo.deploy_cloud.client import GeronimoCloudClient
-from geronimo.deploy_cloud.target import GeronimoCloudTarget
+from geronimo.gdc.client import GeronimoCloudClient
+from geronimo.gdc.target import GeronimoCloudTarget
 
 __all__ = ["GeronimoCloudClient", "GeronimoCloudTarget"]
 

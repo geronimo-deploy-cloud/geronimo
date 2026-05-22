@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 import httpx
 
 from geronimo import __version__
-from geronimo.deploy_cloud.http_utils import api_client, transfer_client
+from geronimo.gdc.http_utils import api_client, transfer_client
 
 
 class GeronimoCloudClient:

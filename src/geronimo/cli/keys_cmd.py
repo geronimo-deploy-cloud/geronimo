@@ -167,7 +167,7 @@ def sync_keys(
     Cloud-managed keys (created via dashboard) take precedence and
     won't be overwritten by synced keys.
     """
-    from geronimo.deploy_cloud.client import GeronimoCloudClient
+    from geronimo.gdc.client import GeronimoCloudClient
     
     manager = APIKeyManager(keys_file)
     all_keys = manager.list_keys()

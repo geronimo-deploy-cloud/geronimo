@@ -42,7 +42,7 @@ class DeploymentConfig(BaseModel):
     
     project: str
     version: str = "1.0.0"
-    target: Literal["aws", "gcp", "azure"] = "aws"
+    target: Literal["aws", "gcp", "azure", "gdc"] = "gdc"
     region: str = "us-east-1"
     
     # Component configs

@@ -413,7 +413,7 @@ def deploy_up(
         "aws",
         "--target",
         "-t",
-        help="Cloud target (aws, gcp, azure, cloud).",
+        help="Cloud target (aws, gcp, azure, gdc).",
     ),
     region: str = typer.Option(
         "us-east-1",

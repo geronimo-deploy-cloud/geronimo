@@ -53,10 +53,14 @@ pulumi = [
 testing = [
     "scikit-learn>=1.3.0",
 ]
+jwt = [
+    "PyJWT>=2.8.0",
+]
 all = [
     "geronimo[mlflow]",
     "geronimo[databases]",
     "geronimo[pulumi]",
+    "geronimo[jwt]",
 ]
 
 

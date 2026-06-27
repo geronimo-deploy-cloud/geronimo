@@ -770,6 +770,7 @@ all = [
     { name = "pulumi-aws" },
     { name = "pulumi-azure-native" },
     { name = "pulumi-gcp" },
+    { name = "pyjwt" },
     { name = "pyodbc" },
     { name = "snowflake-connector-python" },
 ]
@@ -777,6 +778,9 @@ databases = [
     { name = "psycopg2-binary" },
     { name = "pyodbc" },
     { name = "snowflake-connector-python" },
+]
+jwt = [
+    { name = "pyjwt" },
 ]
 mlflow = [
     { name = "mlflow" },
@@ -805,6 +809,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "geronimo", extras = ["databases"], marker = "extra == 'all'" },
+    { name = "geronimo", extras = ["jwt"], marker = "extra == 'all'" },
     { name = "geronimo", extras = ["mlflow"], marker = "extra == 'all'" },
     { name = "geronimo", extras = ["pulumi"], marker = "extra == 'all'" },
     { name = "httpx", specifier = ">=0.25.0" },
@@ -817,6 +822,7 @@ requires-dist = [
     { name = "pulumi-azure-native", marker = "extra == 'pulumi'", specifier = ">=2.0.0" },
     { name = "pulumi-gcp", marker = "extra == 'pulumi'", specifier = ">=7.0.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pyjwt", marker = "extra == 'jwt'", specifier = ">=2.8.0" },
     { name = "pyodbc", marker = "extra == 'databases'", specifier = ">=5.0.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "rich", specifier = ">=14.2.0" },

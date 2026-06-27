@@ -327,10 +327,14 @@ def run(self):
 
 ```yaml
 batch:
-  enabled: true
+  dashboard_enabled: true
+  drift_detection:
+    enabled: false
+    storage_bucket: model-monitoring
+    sampling_rate: 0.05
   backend: step-functions
   step_functions:
-    s3_root: s3://my-bucket/metaflow
+    object_store_root: s3://my-bucket/metaflow
     batch_queue: ml-training-queue
 ```
 

@@ -34,7 +34,7 @@ monitoring:
   dashboard_enabled: true
   drift_detection:
     enabled: false
-    s3_bucket: model-monitoring
+    storage_bucket: model-monitoring
     sampling_rate: 0.05
     window_days: 7
     drift_threshold: 0.1
@@ -51,12 +51,3 @@ deployment:
     auto_deploy: false
     approval_required: true
     variables: {}
-batch:
-  enabled: false
-  backend: step-functions
-  step_functions:
-    s3_root: s3://metaflow-data
-  airflow:
-    connection_id: astronomer_default
-    namespace: default
-  jobs: []

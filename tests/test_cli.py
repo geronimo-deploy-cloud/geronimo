@@ -317,7 +317,7 @@ class TestCLIKeysSync:
         mock_instance.sync_keys.return_value = {"synced": 1, "skipped": 0}
         mock_client_class = MagicMock(return_value=mock_instance)
         
-        monkeypatch.setattr("geronimo.deploy_cloud.client.GeronimoCloudClient", mock_client_class)
+        monkeypatch.setattr("geronimo.gdc.client.GeronimoCloudClient", mock_client_class)
         
         # Sync only the first key
         result = runner.invoke(
@@ -351,7 +351,7 @@ class TestCLIKeysSync:
         )
         mock_client_class = MagicMock(return_value=mock_instance)
         
-        monkeypatch.setattr("geronimo.deploy_cloud.client.GeronimoCloudClient", mock_client_class)
+        monkeypatch.setattr("geronimo.gdc.client.GeronimoCloudClient", mock_client_class)
         
         result = runner.invoke(
             app,

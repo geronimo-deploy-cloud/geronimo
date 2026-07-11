@@ -30,7 +30,7 @@ class TestDeploymentConfig:
         config = DeploymentConfig(project="test-project")
         
         assert config.project == "test-project"
-        assert config.target == "aws"
+        assert config.target == "gdc"
         assert config.region == "us-east-1"
         assert config.stack_name == "dev"
         assert config.version == "1.0.0"
@@ -225,7 +225,7 @@ class TestDestroyFunction:
     
     def test_destroy_raises_when_pulumi_not_installed(self):
         """Test that destroy raises PulumiNotInstalledError without Pulumi."""
-        config = DeploymentConfig(project="test")
+        config = DeploymentConfig(project="test", target="aws")
         
         with patch("geronimo.deploy.targets._check_pulumi_available", return_value=False):
             with pytest.raises(PulumiNotInstalledError):

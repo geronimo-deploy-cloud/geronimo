@@ -8,7 +8,7 @@ MODULES = [
     "geronimo.config",
     "geronimo.data_sources",
     "geronimo.deploy",
-    "geronimo.deploy_cloud",
+    "geronimo.gdc",
     "geronimo.features",
     "geronimo.generators",
     "geronimo.models",

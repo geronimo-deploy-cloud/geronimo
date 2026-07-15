@@ -21,3 +21,4 @@ wheels/
 .agent/
 dist/
 .opencode/plugins/emdash-notifications.js
+.pi/extensions/emdash-hook.ts

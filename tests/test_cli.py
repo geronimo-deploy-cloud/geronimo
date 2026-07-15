@@ -1,6 +1,7 @@
 """Tests for geronimo CLI commands."""
 
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,12 @@ from geronimo.cli.main import app
 
 
 runner = CliRunner()
+
+
+def _strip_ansi(text: str) -> str:
+    """Strip ANSI escape/color codes from terminal output."""
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m|\x1b\([0-9;]*H")
+    return ansi_escape.sub("", text)
 
 
 class TestCLIVersion:
@@ -255,9 +262,10 @@ class TestCLIKeysSync:
         """Test sync --help shows options."""
         result = runner.invoke(app, ["keys", "sync", "--help"])
         assert result.exit_code == 0
-        assert "sync" in result.output.lower()
-        assert "--key-ids" in result.output
-        assert "--interactive" in result.output
+        output = _strip_ansi(result.output)
+        assert "sync" in output.lower()
+        assert "--key-ids" in output
+        assert "--interactive" in output
 
     def test_keys_sync_no_keys(self, temp_dir):
         """Test sync with no local keys."""

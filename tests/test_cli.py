@@ -88,6 +88,50 @@ class TestCLIInit:
         assert "demo_mode" in endpoint_content
         assert "def initialize" in endpoint_content
 
+    def test_init_creates_experiments_directory(self, temp_dir):
+        """Test init creates experiments/ alongside sdk/."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "exp-test",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+
+        assert result.exit_code == 0
+        project_dir = temp_dir / "exp-test"
+        pkg_dir = project_dir / "src" / "exp_test"
+        experiments_dir = pkg_dir / "experiments"
+
+        assert experiments_dir.exists()
+        assert (experiments_dir / "__init__.py").exists()
+        init_content = (experiments_dir / "__init__.py").read_text()
+        assert "ad-hoc" in init_content
+        assert "excluded" in init_content or "production" in init_content
+
+    def test_init_batch_creates_experiments_directory(self, temp_dir):
+        """Test batch template also creates experiments/ alongside sdk/."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "exp-batch",
+                "--template", "batch",
+                "--output", str(temp_dir),
+            ],
+        )
+
+        assert result.exit_code == 0
+        project_dir = temp_dir / "exp-batch"
+        pkg_dir = project_dir / "src" / "exp_batch"
+        experiments_dir = pkg_dir / "experiments"
+
+        assert experiments_dir.exists()
+        init_content = (experiments_dir / "__init__.py").read_text()
+        assert "ad-hoc" in init_content
+
     def test_init_batch_creates_sdk_files(self, temp_dir):
         """Test batch template creates SDK pipeline and flow.py."""
         result = runner.invoke(

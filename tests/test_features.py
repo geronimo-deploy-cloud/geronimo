@@ -1,5 +1,7 @@
 """Tests for geronimo.features module."""
 
+import logging
+
 import pandas as pd
 import pytest
 
@@ -57,6 +59,107 @@ class TestFeature:
         f = Feature(dtype="numeric")
         f._name = "age"
         assert "Feature(age" in repr(f)
+
+    def test_feature_required_default_true(self):
+        """Test that required defaults to True."""
+        f = Feature(dtype="numeric")
+        assert f.required is True
+
+    def test_feature_required_false(self):
+        """Test setting required=False."""
+        f = Feature(dtype="numeric", required=False)
+        assert f.required is False
+
+    def test_feature_default_value(self):
+        """Test setting a default value."""
+        f = Feature(dtype="numeric", required=False, default=42.0)
+        assert f.default == 42.0
+
+    def test_feature_default_on_required(self):
+        """Setting default on required=True Feature does not raise at definition."""
+        f = Feature(dtype="numeric", required=True, default=42.0)
+        assert f.required is True
+        assert f.default == 42.0
+
+    def test_feature_repr_with_required_and_default(self):
+        """Test repr includes required/default when set."""
+        f = Feature(dtype="numeric", required=False, default=42.0)
+        f._name = "age"
+        r = repr(f)
+        assert "required=False" in r
+        assert "default=42.0" in r
+
+    def test_check_presence_required_present(self, sample_df):
+        """required=True, data present → True (no error)."""
+        f = Feature(dtype="numeric", required=True)
+        f._name = "age"
+        assert f.check_presence(sample_df) is True
+
+    def test_check_presence_required_absent(self, sample_df):
+        """required=True, data absent → ValueError."""
+        f = Feature(dtype="numeric", required=True)
+        f._name = "missing_col"
+        with pytest.raises(ValueError, match="Feature 'missing_col' is required but was not found in the input"):
+            f.check_presence(sample_df)
+
+    def test_check_presence_optional_present(self, sample_df):
+        """required=False, data present → True."""
+        f = Feature(dtype="numeric", required=False)
+        f._name = "age"
+        assert f.check_presence(sample_df) is True
+
+    def test_check_presence_optional_absent_no_default(self, sample_df):
+        """required=False, data absent, no default → False."""
+        f = Feature(dtype="numeric", required=False)
+        f._name = "missing_col"
+        assert f.check_presence(sample_df) is False
+
+    def test_check_presence_optional_absent_with_default(self, sample_df, caplog):
+        """required=False, data absent, default set → True, warning logged."""
+        f = Feature(dtype="numeric", required=False, default=42.0)
+        f._name = "missing_col"
+        with caplog.at_level(logging.WARNING):
+            result = f.check_presence(sample_df)
+        assert result is True
+        assert "missing data substituted with default value 42.0" in caplog.text
+
+    def test_check_presence_derived_required_missing_source(self, sample_df):
+        """Required derived feature missing a source column raises ValueError."""
+        f = Feature(
+            dtype="derived",
+            source_columns=["age", "nonexistent"],
+            derived_feature_fn=lambda df: df["age"],
+            required=True,
+        )
+        f._name = "derived_feature"
+        with pytest.raises(ValueError, match="Feature 'derived_feature' is required but was not found in the input"):
+            f.check_presence(sample_df)
+
+    def test_check_presence_derived_optional_missing_source_with_default(self, sample_df, caplog):
+        """Optional derived feature missing source + default → True, warning logged."""
+        f = Feature(
+            dtype="derived",
+            source_columns=["age", "nonexistent"],
+            derived_feature_fn=lambda df: df["age"],
+            required=False,
+            default=99.0,
+        )
+        f._name = "derived_feature"
+        with caplog.at_level(logging.WARNING):
+            result = f.check_presence(sample_df)
+        assert result is True
+        assert "missing data substituted with default value 99.0" in caplog.text
+
+    def test_check_presence_derived_optional_missing_source_no_default(self, sample_df):
+        """Optional derived feature missing source, no default → False."""
+        f = Feature(
+            dtype="derived",
+            source_columns=["age", "nonexistent"],
+            derived_feature_fn=lambda df: df["age"],
+            required=False,
+        )
+        f._name = "derived_feature"
+        assert f.check_presence(sample_df) is False
 
 
 class TestFeatureSet:
@@ -140,3 +243,123 @@ class TestFeatureSet:
         fs = SimpleFeatures()
         with pytest.raises(ValueError, match="not fitted"):
             fs.transform(sample_df)
+
+    # =========================================================================
+    # Required/Optional integration tests (FeatureSet level)
+    # =========================================================================
+
+    def test_required_feature_absent_at_fit_raises(self, sample_df):
+        """required=True, data absent at fit time → ValueError."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", required=True)
+            missing = Feature(dtype="numeric", required=True)
+
+        fs = MyFeatures()
+        with pytest.raises(ValueError, match="Feature 'missing' is required but was not found in the input"):
+            fs.fit(sample_df)
+
+    def test_required_feature_absent_at_transform_raises(self, sample_df):
+        """required=True, data absent at transform time → ValueError."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", required=True)
+            missing = Feature(dtype="numeric", required=True)
+
+        fs = MyFeatures()
+        # Fit on data that has both 'age' and 'missing' columns
+        fit_df = pd.DataFrame({
+            "age": [25.0, 35.0],
+            "missing": [100.0, 200.0],
+        })
+        fs.fit(fit_df)
+        # But transform on data missing 'missing'
+        partial_df = pd.DataFrame({"age": [1.0, 2.0]})
+        with pytest.raises(ValueError, match="Feature 'missing' is required but was not found in the input"):
+            fs.transform(partial_df)
+
+    def test_required_feature_present_no_change(self, sample_df):
+        """required=True, data present → no change in behavior."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", required=True)
+
+        fs = MyFeatures()
+        result = fs.fit_transform(sample_df)
+        assert "age" in result.columns
+        assert list(result["age"]) == [25, 35, 45, 55, 65]
+
+    def test_optional_feature_absent_with_default_substituted(self, sample_df, caplog):
+        """required=False, data absent, default set → default substituted, warning logged."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            missing_with_default = Feature(
+                dtype="numeric",
+                required=False,
+                default=42.0,
+            )
+
+        fs = MyFeatures()
+        with caplog.at_level(logging.WARNING):
+            result = fs.fit_transform(sample_df)
+        assert "missing_with_default" in result.columns
+        assert list(result["missing_with_default"]) == [42.0, 42.0, 42.0, 42.0, 42.0]
+        assert "missing data substituted with default value 42.0" in caplog.text
+
+    def test_optional_feature_absent_no_default_passes_nan(self, sample_df):
+        """required=False, data absent, no default → None/NaN passed through."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            missing_no_default = Feature(
+                dtype="numeric",
+                required=False,
+            )
+
+        fs = MyFeatures()
+        result = fs.fit_transform(sample_df)
+        assert "missing_no_default" in result.columns
+        # All values should be None (NaN-like)
+        assert all(v is None for v in result["missing_no_default"])
+
+    def test_optional_feature_present_no_change(self, sample_df):
+        """required=False, data present → no change in behavior."""
+        full_df = pd.DataFrame({
+            "age": [25, 35, 45, 55, 65],
+            "income": [50000, 75000, 100000, 125000, 150000],
+        })
+
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            income = Feature(dtype="numeric", required=False)
+
+        fs = MyFeatures()
+        result = fs.fit_transform(full_df)
+        assert "income" in result.columns
+        assert list(result["income"]) == [50000, 75000, 100000, 125000, 150000]
+
+    def test_required_feature_with_default_still_enforces(self, sample_df):
+        """default on required=True is never used; required enforcement takes priority."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            missing_with_default = Feature(
+                dtype="numeric",
+                required=True,
+                default=999.0,
+            )
+
+        fs = MyFeatures()
+        with pytest.raises(ValueError, match="Feature 'missing_with_default' is required but was not found in the input"):
+            fs.fit(sample_df)
+
+    def test_existing_tests_still_pass(self, sample_df):
+        """Regression: existing Feature behavior without required/default is unchanged."""
+        # Replicate the basic feature set test to ensure backward compatibility
+        class SimpleFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            income = Feature(dtype="numeric")
+
+        fs = SimpleFeatures()
+        result = fs.fit_transform(sample_df)
+        assert fs.is_fitted is True
+        assert "age" in result.columns
+        assert "income" in result.columns
+        assert len(result) == len(sample_df)
+
+

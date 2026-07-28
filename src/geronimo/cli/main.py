@@ -81,6 +81,12 @@ def init(
         "-t",
         help="Project type: 'realtime' (API endpoints), 'batch' (pipelines), or 'both'.",
     ),
+    target: str = typer.Option(
+        "gdc",
+        "--target",
+        "-T",
+        help="Deploy target (aws, gcp, azure, gdc). Pulumi-backed targets get Pulumi SDK dependencies.",
+    ),
     output_dir: str = typer.Option(
         ".",
         "--output",
@@ -96,6 +102,10 @@ def init(
     - realtime: FastAPI endpoints with Endpoint class
     - batch: Metaflow pipelines with BatchPipeline class
     - both: Combined real-time and batch support
+    
+    Deploy targets:
+    - gdc: Geronimo Cloud (default, no Pulumi)
+    - aws, gcp, azure: Pulumi-backed cloud providers
     """
     from geronimo.generators.project import ProjectGenerator
 
@@ -105,14 +115,22 @@ def init(
         console.print(f"[bold red]Error:[/bold red] Invalid template '{template}'. Choose from: {valid_templates}")
         raise typer.Exit(code=1)
 
+    # Validate target
+    valid_targets = {"aws", "gcp", "azure", "gdc"}
+    if target not in valid_targets:
+        console.print(f"[bold red]Error:[/bold red] Invalid target '{target}'. Choose from: {valid_targets}")
+        raise typer.Exit(code=1)
+
     console.print(f"\n[bold blue]Initializing project:[/bold blue] {name}")
     console.print(f"  Template: [cyan]{template}[/cyan]")
+    console.print(f"  Target: [cyan]{target}[/cyan]")
 
     generator = ProjectGenerator(
         project_name=name,
         framework=framework,
         output_dir=output_dir,
         template=template,
+        target=target,
     )
 
     try:

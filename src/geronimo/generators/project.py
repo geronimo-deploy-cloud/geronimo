@@ -43,6 +43,20 @@ BATCH_DEPS = [
     "evidently>=0.7.20",
 ]
 
+# Pulumi SDK dependencies — added when deploy target is Pulumi-backed
+PULUMI_CORE_DEPS = [
+    "pulumi>=3.100.0",
+]
+
+PULUMI_PROVIDER_DEPS = {
+    "aws": "pulumi-aws>=9.0.0",
+    "gcp": "pulumi-gcp>=8.0.0",
+    "azure": "pulumi-azure-native>=2.0.0",
+}
+
+# Targets that use Pulumi (vs. GDC, which uses its own cloud API)
+PULUMI_BACKED_TARGETS = {"aws", "gcp", "azure"}
+
 class ProjectGenerator(BaseGenerator):
     """Generates a complete FastAPI ML project structure."""
 
@@ -63,6 +77,9 @@ class ProjectGenerator(BaseGenerator):
     template: str
     """The selected project template (realtime/batch/both)."""
 
+    target: str
+    """The deploy target (aws, gcp, azure, gdc)."""
+
     engine: TemplateEngine
     """The template rendering engine."""
 
@@ -72,6 +89,7 @@ class ProjectGenerator(BaseGenerator):
         framework: str = "sklearn",
         output_dir: str = ".",
         template: str = "realtime",
+        target: str = "gdc",
     ) -> None:
         """Initialize the project generator.
 
@@ -80,6 +98,7 @@ class ProjectGenerator(BaseGenerator):
             framework: ML framework to use.
             output_dir: Directory to create the project in.
             template: Project template (realtime, batch, or both).
+            target: Deploy target (aws, gcp, azure, gdc).
         """
         super().__init__()
         self.project_name = project_name.lower().replace(" ", "-")
@@ -87,6 +106,7 @@ class ProjectGenerator(BaseGenerator):
         self.output_dir = Path(output_dir)
         self.project_dir = self.output_dir / self.project_name
         self.template = template
+        self.target = target
         self.engine = TemplateEngine()
 
     def _get_framework_dependencies(self) -> list[str]:
@@ -116,7 +136,14 @@ class ProjectGenerator(BaseGenerator):
         # Framework-specific deps
         framework_deps = self._get_framework_dependencies()
 
-        return core + template_deps + framework_deps
+        # Pulumi deps for Pulumi-backed targets
+        pulumi_deps = []
+        if self.target in PULUMI_BACKED_TARGETS:
+            pulumi_deps = PULUMI_CORE_DEPS + [
+                PULUMI_PROVIDER_DEPS[self.target],
+            ]
+
+        return core + template_deps + framework_deps + pulumi_deps
 
     def _to_pascal_case(self, name: str) -> str:
         """Convert kebab-case or snake_case name to PascalCase.

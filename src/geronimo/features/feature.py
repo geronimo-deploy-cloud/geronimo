@@ -1,6 +1,9 @@
 """Feature descriptor for feature definitions."""
 
+import logging
 from typing import Any, Callable, Literal, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class Feature:
@@ -79,6 +82,8 @@ class Feature:
         derived_feature_fn: Optional[Callable] = None,
         drop: bool = False,
         description: Optional[str] = None,
+        required: bool = True,
+        default: Any = None,
     ):
         """Initialize feature.
 
@@ -113,6 +118,16 @@ class Feature:
                 Useful for passthrough columns needed only for derived features.
 
             description: Optional human-readable feature description.
+
+            required: Whether the feature must be present in input data.
+                If True (default), a missing column raises ValueError. If False,
+                missing data is handled by substituting `default` (if set) or
+                passing NaN through silently.
+
+            default: Fallback value used when an optional feature's data is
+                absent. Only meaningful when `required=False`. When the feature
+                is missing and a default is set, the default is substituted and
+                a warning is logged.
         """
         self.dtype = dtype
         self.transformer = transformer
@@ -122,6 +137,8 @@ class Feature:
         self.derived_feature_fn = derived_feature_fn
         self.drop = drop
         self.description = description
+        self.required = required
+        self.default = default
         self._name: Optional[str] = None
     
     dtype: Literal["numeric", "categorical", "text", "derived"]
@@ -147,6 +164,12 @@ class Feature:
 
     description: Optional[str]
     """Optional human-readable feature description."""
+
+    required: bool
+    """Whether the feature must be present in input data."""
+
+    default: Any
+    """Fallback value for optional features when data is absent."""
 
     def __set_name__(self, owner, name: str) -> None:
         """Capture attribute name when defined in class."""
@@ -202,6 +225,60 @@ class Feature:
         else:
             return df[self.name]
 
+    def check_presence(self, df) -> bool:
+        """Check whether this feature's data is present in the DataFrame.
+
+        An absence check that handles required enforcement and default
+        substitution. Designed to be called from FeatureSet._process_feature
+        before any data processing.
+
+        Args:
+            df: Input DataFrame.
+
+        Returns:
+            True if the feature's data is present (or was substituted with
+            a default). False if the feature is absent and no default was
+            substituted (caller should skip this feature).
+
+        Raises:
+            ValueError: If the feature is required but absent.
+        """
+        col_name = self.source_column or self.name
+
+        # Derived features: check source columns
+        if self.has_derived_fn:
+            sources = self.source_columns or [self.source_column or self.name]
+            for src in sources:
+                if src not in df.columns:
+                    if self.required:
+                        raise ValueError(
+                            f"Feature '{self.name}' is required but was not found in the input"
+                        )
+                    if self.default is not None:
+                        logger.warning(
+                            f"Feature '{self.name}': missing data substituted with default value {self.default}"
+                        )
+                        # Signal that a default was substituted by returning True
+                        # (caller will need to inject the default)
+                        return True
+                    return False
+            return True
+
+        # Standard features: check single column
+        if col_name not in df.columns:
+            if self.required:
+                raise ValueError(
+                    f"Feature '{self.name}' is required but was not found in the input"
+                )
+            if self.default is not None:
+                logger.warning(
+                    f"Feature '{self.name}': missing data substituted with default value {self.default}"
+                )
+                return True
+            return False
+
+        return True
+
     def __repr__(self) -> str:
         extras = []
         if self.has_derived_fn:
@@ -212,5 +289,9 @@ class Feature:
             extras.append("transformer")
         if self.has_encoder:
             extras.append("encoder")
+        if not self.required:
+            extras.append(f"required={self.required}")
+        if self.default is not None:
+            extras.append(f"default={self.default}")
         extra_str = f", {', '.join(extras)}" if extras else ""
         return f"Feature({self.name}, dtype={self.dtype}{extra_str})"

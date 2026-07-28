@@ -144,6 +144,28 @@ class FeatureSet:
         """
         # Handle derived features with custom functions
         if feature.has_derived_fn:
+            # Check if source columns exist before applying derived fn
+            sources = feature.source_columns or [feature.source_column or feature.name]
+            missing_sources = [s for s in sources if s not in df.columns]
+            
+            if missing_sources:
+                if feature.required:
+                    raise ValueError(
+                        f"Feature '{feature.name}' is required but was not found in the input"
+                    )
+                if feature.default is not None:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f"Feature '{feature.name}': missing data substituted with default value {feature.default}"
+                    )
+                    return pd.Series(
+                        [feature.default] * len(df),
+                        index=df.index,
+                        name=feature.name,
+                    )
+                return None
+            
             derived_values = feature.apply(df)
             
             if feature.has_transformer:
@@ -163,6 +185,30 @@ class FeatureSet:
         # Standard features
         col_name = feature.source_column
         if col_name not in df.columns:
+            # Column not present — apply required/default logic
+            if feature.required:
+                raise ValueError(
+                    f"Feature '{feature.name}' is required but was not found in the input"
+                )
+            # Optional feature with default — substitute default value
+            if feature.default is not None:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"Feature '{feature.name}': missing data substituted with default value {feature.default}"
+                )
+                return pd.Series(
+                    [feature.default] * len(df),
+                    index=df.index,
+                    name=feature.name,
+                )
+            # Optional feature without default — pass through NaN
+            if not feature.required:
+                return pd.Series(
+                    [None] * len(df),
+                    index=df.index,
+                    name=feature.name,
+                )
             return None
 
         if feature.has_transformer:

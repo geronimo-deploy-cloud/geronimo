@@ -294,7 +294,26 @@ class ProjectGenerator(BaseGenerator):
         sdk_dir = pkg_dir / "sdk"
         sdk_dir.mkdir(exist_ok=True)
         self.write_file(sdk_dir / "__init__.py", '"""Geronimo SDK - define your model lifecycle here."""\n')
-        
+
+        # ==============================
+        # Experiments package (always generated)
+        # ==============================
+        experiments_dir = pkg_dir / "experiments"
+        experiments_dir.mkdir(exist_ok=True)
+        self.write_file(
+            experiments_dir / "__init__.py",
+            '"""Experiments package — ad-hoc model testing and iteration.\n'
+            '\n'
+            '    This directory is intentionally excluded from production code paths.\n'
+            '    It is the designated space for ad-hoc testing and experimentation\n'
+            '    of the model during development.\n'
+            '\n'
+            '    Scripts here are not expected to be production-quality; they\n'
+            '    exist to help developers explore, iterate, and validate\n'
+            '    behavior quickly.\n'
+            '"""',
+        )
+
         # Use template engine for SDK files
         self.engine.render_to_file("sdk/model.py.jinja2", context, sdk_dir / "model.py")
         self.engine.render_to_file("sdk/features.py.jinja2", context, sdk_dir / "features.py")

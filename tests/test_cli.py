@@ -1,6 +1,7 @@
 """Tests for geronimo CLI commands."""
 
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,12 @@ from geronimo.cli.main import app
 
 
 runner = CliRunner()
+
+
+def _strip_ansi(text: str) -> str:
+    """Strip ANSI escape/color codes from terminal output."""
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m|\x1b\([0-9;]*H")
+    return ansi_escape.sub("", text)
 
 
 class TestCLIVersion:
@@ -80,6 +87,50 @@ class TestCLIInit:
         endpoint_content = (sdk_dir / "endpoint.py").read_text()
         assert "demo_mode" in endpoint_content
         assert "def initialize" in endpoint_content
+
+    def test_init_creates_experiments_directory(self, temp_dir):
+        """Test init creates experiments/ alongside sdk/."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "exp-test",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+
+        assert result.exit_code == 0
+        project_dir = temp_dir / "exp-test"
+        pkg_dir = project_dir / "src" / "exp_test"
+        experiments_dir = pkg_dir / "experiments"
+
+        assert experiments_dir.exists()
+        assert (experiments_dir / "__init__.py").exists()
+        init_content = (experiments_dir / "__init__.py").read_text()
+        assert "ad-hoc" in init_content
+        assert "excluded" in init_content or "production" in init_content
+
+    def test_init_batch_creates_experiments_directory(self, temp_dir):
+        """Test batch template also creates experiments/ alongside sdk/."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "exp-batch",
+                "--template", "batch",
+                "--output", str(temp_dir),
+            ],
+        )
+
+        assert result.exit_code == 0
+        project_dir = temp_dir / "exp-batch"
+        pkg_dir = project_dir / "src" / "exp_batch"
+        experiments_dir = pkg_dir / "experiments"
+
+        assert experiments_dir.exists()
+        init_content = (experiments_dir / "__init__.py").read_text()
+        assert "ad-hoc" in init_content
 
     def test_init_batch_creates_sdk_files(self, temp_dir):
         """Test batch template creates SDK pipeline and flow.py."""
@@ -255,9 +306,10 @@ class TestCLIKeysSync:
         """Test sync --help shows options."""
         result = runner.invoke(app, ["keys", "sync", "--help"])
         assert result.exit_code == 0
-        assert "sync" in result.output.lower()
-        assert "--key-ids" in result.output
-        assert "--interactive" in result.output
+        output = _strip_ansi(result.output)
+        assert "sync" in output.lower()
+        assert "--key-ids" in output
+        assert "--interactive" in output
 
     def test_keys_sync_no_keys(self, temp_dir):
         """Test sync with no local keys."""
@@ -317,7 +369,7 @@ class TestCLIKeysSync:
         mock_instance.sync_keys.return_value = {"synced": 1, "skipped": 0}
         mock_client_class = MagicMock(return_value=mock_instance)
         
-        monkeypatch.setattr("geronimo.deploy_cloud.client.GeronimoCloudClient", mock_client_class)
+        monkeypatch.setattr("geronimo.gdc.client.GeronimoCloudClient", mock_client_class)
         
         # Sync only the first key
         result = runner.invoke(
@@ -351,7 +403,7 @@ class TestCLIKeysSync:
         )
         mock_client_class = MagicMock(return_value=mock_instance)
         
-        monkeypatch.setattr("geronimo.deploy_cloud.client.GeronimoCloudClient", mock_client_class)
+        monkeypatch.setattr("geronimo.gdc.client.GeronimoCloudClient", mock_client_class)
         
         result = runner.invoke(
             app,

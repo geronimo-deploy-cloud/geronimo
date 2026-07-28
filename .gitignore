@@ -20,4 +20,8 @@ wheels/
 .geronimo
 .agent/
 dist/
+<<<<<<< HEAD
+=======
+.opencode/plugins/emdash-notifications.js
+>>>>>>> 230e2fb8b452af33f1d2fe73e3f3bc0748da5f29
 .pi/extensions/emdash-hook.ts

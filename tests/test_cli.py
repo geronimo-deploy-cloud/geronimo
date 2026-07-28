@@ -56,6 +56,55 @@ class TestCLIInit:
         assert (temp_dir / "test-project" / "geronimo.yaml").exists()
         assert (temp_dir / "test-project" / "pyproject.toml").exists()
 
+    def test_init_creates_project_with_target(self, temp_dir):
+        """Test init with --target flag creates project structure."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "target-test",
+                "--target", "aws",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        assert (temp_dir / "target-test").exists()
+        assert (temp_dir / "target-test" / "pyproject.toml").exists()
+
+    def test_init_invalid_target(self, temp_dir):
+        """Test init with invalid target fails."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "bad-target",
+                "--target", "invalid-target",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 1
+        assert "Invalid target" in result.output
+
+    def test_init_target_in_output(self, temp_dir):
+        """Test init with target prints target in output."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "target-output-test",
+                "--target", "gcp",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        assert "Target: gcp" in result.output
+
     def test_init_realtime_creates_sdk_files(self, temp_dir):
         """Test realtime template creates SDK endpoint and app.py."""
         result = runner.invoke(
@@ -244,6 +293,181 @@ class TestCLIInit:
         
         # Should NOT reference batch concepts
         assert "batch pipeline" not in readme.lower()
+
+
+class TestCLIPulumiDeps:
+    """Tests for Pulumi dependency scaffolding based on deploy target."""
+
+    def _get_pyproject_deps(self, temp_dir, project_name: str) -> str:
+        """Helper to read pyproject.toml contents."""
+        return (temp_dir / project_name / "pyproject.toml").read_text()
+
+    def test_init_aws_target_includes_pulumi(self, temp_dir):
+        """Test --target aws adds pulumi and pulumi-aws to dependencies."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "aws-pulumi-test",
+                "--target", "aws",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        pyproject = self._get_pyproject_deps(temp_dir, "aws-pulumi-test")
+        
+        assert re.search(r'"pulumi>=3\.100\.0"', pyproject)
+        assert re.search(r'"pulumi-aws>=9\.0\.0"', pyproject)
+
+    def test_init_gcp_target_includes_pulumi(self, temp_dir):
+        """Test --target gcp adds pulumi and pulumi-gcp to dependencies."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "gcp-pulumi-test",
+                "--target", "gcp",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        pyproject = self._get_pyproject_deps(temp_dir, "gcp-pulumi-test")
+        
+        assert re.search(r'"pulumi>=3\.100\.0"', pyproject)
+        assert re.search(r'"pulumi-gcp>=8\.0\.0"', pyproject)
+
+    def test_init_azure_target_includes_pulumi(self, temp_dir):
+        """Test --target azure adds pulumi and pulumi-azure-native to dependencies."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "azure-pulumi-test",
+                "--target", "azure",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        pyproject = self._get_pyproject_deps(temp_dir, "azure-pulumi-test")
+        
+        assert re.search(r'"pulumi>=3\.100\.0"', pyproject)
+        assert re.search(r'"pulumi-azure-native>=2\.0\.0"', pyproject)
+
+    def test_init_gdc_target_excludes_pulumi(self, temp_dir):
+        """Test --target gdc (default) does NOT include pulumi dependencies."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "gdc-no-pulumi",
+                "--target", "gdc",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        pyproject = self._get_pyproject_deps(temp_dir, "gdc-no-pulumi")
+        
+        # Check for actual dependency declarations, not substring matches in project name
+        pulumi_dep_pattern = re.compile(r'"pulumi[-\w]*[><=!]', re.IGNORECASE)
+        assert not pulumi_dep_pattern.search(pyproject), "GDC target should not include pulumi dependencies"
+
+    def test_init_default_target_excludes_pulumi(self, temp_dir):
+        """Test omitting --target (defaults to gdc) does NOT include pulumi."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "default-no-pulumi",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        pyproject = self._get_pyproject_deps(temp_dir, "default-no-pulumi")
+        
+        # Check for actual dependency declarations, not substring matches in project name
+        pulumi_dep_pattern = re.compile(r'"pulumi[-\w]*[><=!]', re.IGNORECASE)
+        assert not pulumi_dep_pattern.search(pyproject), "Default (gdc) target should not include pulumi dependencies"
+
+    def test_init_aws_batch_target_includes_pulumi(self, temp_dir):
+        """Test --target aws with batch template includes pulumi deps."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "aws-batch-pulumi",
+                "--target", "aws",
+                "--template", "batch",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        pyproject = self._get_pyproject_deps(temp_dir, "aws-batch-pulumi")
+        
+        assert re.search(r'"pulumi>=3\.100\.0"', pyproject)
+        assert re.search(r'"pulumi-aws>=9\.0\.0"', pyproject)
+        # Also check batch deps are still present
+        assert "metaflow" in pyproject
+
+    def test_init_aws_both_template_includes_pulumi(self, temp_dir):
+        """Test --target aws with 'both' template includes pulumi deps."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "aws-both-pulumi",
+                "--target", "aws",
+                "--template", "both",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        pyproject = self._get_pyproject_deps(temp_dir, "aws-both-pulumi")
+        
+        assert re.search(r'"pulumi>=3\.100\.0"', pyproject)
+        assert re.search(r'"pulumi-aws>=9\.0\.0"', pyproject)
+        # Also check both template deps
+        assert "fastapi" in pyproject
+        assert "metaflow" in pyproject
+
+    def test_init_aws_target_version_pin_convention(self, temp_dir):
+        """Test Pulumi deps use >= pinning convention matching other deps."""
+        result = runner.invoke(
+            app,
+            [
+                "init",
+                "--name", "version-pin-test",
+                "--target", "aws",
+                "--template", "realtime",
+                "--output", str(temp_dir),
+            ],
+        )
+        
+        assert result.exit_code == 0
+        pyproject = self._get_pyproject_deps(temp_dir, "version-pin-test")
+        
+        # All deps should use >= pinning, not exact pins or unpinned
+        # Find all dependency lines
+        dep_lines = re.findall(r'"([^"]+)"', pyproject)
+        for dep in dep_lines:
+            # Skip project name and version strings
+            if dep in ("aws-pulumi-test", "version-pin-test"):
+                continue
+            # Pulumi deps should use >=
+            if "pulumi" in dep.lower():
+                assert ">=" in dep, f"Pulumi dep '{dep}' should use >= pinning"
+
 
 
 

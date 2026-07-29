@@ -1,7 +1,8 @@
 """Feature descriptor for feature definitions."""
 
 import logging
-from typing import Any, Callable, Literal, Optional
+from functools import partial
+from typing import Any, Callable, Literal, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,8 @@ class Feature:
         description: Optional[str] = None,
         required: bool = True,
         default: Any = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwargs: Optional[dict[str, Any]] = None,
     ):
         """Initialize feature.
 
@@ -137,6 +140,16 @@ class Feature:
                 absent. Only meaningful when `required=False`. When the feature
                 is missing and a default is set, the default is substituted and
                 a warning is logged.
+
+            args: Positional arguments bound to `derived_feature_fn` at
+                definition time. The function signature must accept `df` as
+                the first argument, followed by these positional arguments.
+                Example: `args=(7,)` for a `window` parameter.
+
+            kwargs: Keyword arguments bound to `derived_feature_fn` at
+                definition time. The function signature must accept `df` as
+                the first argument, followed by these keyword arguments.
+                Example: `kwargs={"col": "price"}` for a `col` parameter.
         """
         self.dtype = dtype
         self.data_type = data_type
@@ -144,12 +157,14 @@ class Feature:
         self.encoder = encoder
         self.source_column = source_column
         self.source_columns = source_columns
-        self.derived_feature_fn = derived_feature_fn
+        self._bind_derived_fn(derived_feature_fn, args, kwargs)
         self.drop = drop
         self.description = description
         self.required = required
         self.default = default
         self._name: Optional[str] = None
+        self._args: Optional[Tuple[Any, ...]] = args
+        self._kwargs: Optional[dict[str, Any]] = kwargs
     
     dtype: Literal["numeric", "categorical", "text", "derived"]
     """Feature data type."""
@@ -169,8 +184,15 @@ class Feature:
     source_columns: Optional[list[str]]
     """List of input column names for derived features."""
 
-    derived_feature_fn: Optional[Callable]
-    """Custom function for feature engineering."""
+    @property
+    def derived_feature_fn(self) -> Optional[Callable]:
+        """Custom function for feature engineering."""
+        return self._derived_feature_fn
+
+    @derived_feature_fn.setter
+    def derived_feature_fn(self, value: Optional[Callable]) -> None:
+        """Set the derived feature function."""
+        self._derived_feature_fn = value
 
     drop: bool
     """If True, exclude feature from final output."""
@@ -189,6 +211,38 @@ class Feature:
         self._name = name
         if self.source_column is None and self.source_columns is None:
             self.source_column = name
+
+    def _bind_derived_fn(
+        self,
+        fn: Optional[Callable],
+        args: Optional[Tuple[Any, ...]],
+        kwargs: Optional[dict[str, Any]],
+    ) -> None:
+        """Bind extra args/kwargs to derived_feature_fn.
+
+        If ``args`` or ``kwargs`` are provided alongside a callable, wrap the
+        callable in a closure that accepts only ``df`` as its argument and
+        forwards it as the first positional argument, followed by the bound
+        ``args`` and ``kwargs``.  This allows the SDK to continue calling
+        ``self.derived_feature_fn(df)`` without any invocation-site changes.
+
+        Args:
+            fn: The original derived feature function (may be None).
+            args: Positional arguments to bind (applied after ``df``).
+            kwargs: Keyword arguments to bind.
+        """
+        if fn is None:
+            self._derived_feature_fn = None
+        elif args or kwargs:
+            _args = args or ()
+            _kwargs = kwargs or {}
+
+            def _wrapper(df):
+                return fn(df, *_args, **_kwargs)
+
+            self._derived_feature_fn = _wrapper
+        else:
+            self._derived_feature_fn = fn
 
     @property
     def name(self) -> str:
@@ -215,7 +269,7 @@ class Feature:
     @property
     def has_derived_fn(self) -> bool:
         """Check if feature has a derived feature function."""
-        return self.derived_feature_fn is not None
+        return self._derived_feature_fn is not None
 
     @property
     def is_derived(self) -> bool:
@@ -296,6 +350,10 @@ class Feature:
         extras = []
         if self.has_derived_fn:
             extras.append("derived_feature_fn")
+            if self._args or self._kwargs:
+                extras.append(f"args={self._args}")
+                if self._kwargs:
+                    extras.append(f"kwargs={self._kwargs}")
         if self.source_columns:
             extras.append(f"inputs={self.source_columns}")
         if self.has_transformer:

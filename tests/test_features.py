@@ -342,6 +342,134 @@ class TestFeature:
         f._name = "derived_feature"
         assert f.check_presence(sample_df) is False
 
+    # =========================================================================
+    # New: args and kwargs binding for derived_feature_fn
+    # =========================================================================
+
+    def test_feature_args_only(self):
+        """Test derived feature bound with positional args only."""
+        def rolling_mean(df, window: int):
+            return df["value"].rolling(window).mean()
+
+        f = Feature(
+            dtype="derived",
+            source_columns=["value"],
+            derived_feature_fn=rolling_mean,
+            args=(3,),
+        )
+        assert f.has_derived_fn is True
+        df = pd.DataFrame({"value": [1.0, 2.0, 3.0, 4.0, 5.0]})
+        result = f.apply(df)
+        # rolling(3).mean(): [nan, nan, 2.0, 3.0, 4.0]
+        assert pd.isna(result.iloc[0])
+        assert pd.isna(result.iloc[1])
+        assert result.iloc[2] == 2.0
+        assert result.iloc[3] == 3.0
+        assert result.iloc[4] == 4.0
+
+    def test_feature_kwargs_only(self):
+        """Test derived feature bound with keyword kwargs only."""
+        def ratio(df, numerator: str, denominator: str):
+            return df[numerator] / df[denominator]
+
+        f = Feature(
+            dtype="derived",
+            source_columns=["revenue", "cost"],
+            derived_feature_fn=ratio,
+            kwargs={"numerator": "revenue", "denominator": "cost"},
+        )
+        assert f.has_derived_fn is True
+        df = pd.DataFrame({"revenue": [100.0, 200.0], "cost": [50.0, 40.0]})
+        result = f.apply(df)
+        assert list(result) == [2.0, 5.0]
+
+    def test_feature_args_and_kwargs(self):
+        """Test derived feature bound with both args and kwargs (no overlap)."""
+        def bounded(df, lower: float, upper: float, col: str):
+            return df[col].clip(lower=lower, upper=upper)
+
+        f = Feature(
+            dtype="derived",
+            source_columns=["score"],
+            derived_feature_fn=bounded,
+            args=(0.0, 100.0),
+            kwargs={"col": "score"},
+        )
+        assert f.has_derived_fn is True
+        df = pd.DataFrame({"score": [-10.0, 50.0, 200.0]})
+        result = f.apply(df)
+        assert list(result) == [0.0, 50.0, 100.0]
+
+    def test_feature_kwargs_none_does_not_crash(self):
+        """Ensure args or kwargs being None (default) does not crash partial."""
+        f = Feature(
+            dtype="derived",
+            source_columns=["a"],
+            derived_feature_fn=lambda df: df["a"],
+        )
+        assert f.has_derived_fn is True
+        df = pd.DataFrame({"a": [1, 2, 3]})
+        result = f.apply(df)
+        assert list(result) == [1, 2, 3]
+
+    def test_feature_repr_with_args_and_kwargs(self):
+        """Test repr includes args/kwargs when set."""
+        def fn(df, window: int):
+            return df
+
+        f = Feature(
+            dtype="derived",
+            derived_feature_fn=fn,
+            args=(7,),
+            kwargs={"col": "x"},
+        )
+        f._name = "test_feature"
+        r = repr(f)
+        assert "args=" in r or "derived_feature_fn" in r
+        assert "kwargs=" in r or "derived_feature_fn" in r
+
+    def test_feature_set_with_bound_args(self, sample_df):
+        """Integration: FeatureSet.fit_transform with derived feature bound via args."""
+        class BoundedFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            age_capped = Feature(
+                dtype="derived",
+                source_columns=["age"],
+                derived_feature_fn=lambda df, cap: df["age"].clip(upper=cap),
+                args=(50,),
+            )
+
+        fs = BoundedFeatures()
+        result = fs.fit_transform(sample_df)
+        assert "age_capped" in result.columns
+        # sample_df has ages [25, 35, 45, 55, 65], capped at 50 → [25, 35, 45, 50, 50]
+        assert list(result["age_capped"]) == [25, 35, 45, 50, 50]
+
+    def test_feature_set_with_bound_kwargs(self):
+        """Integration: FeatureSet.fit_transform with derived feature bound via kwargs."""
+        df = pd.DataFrame({
+            "revenue": [100.0, 200.0, 300.0, 400.0, 500.0],
+            "cost": [80.0, 160.0, 240.0, 320.0, 400.0],
+        })
+
+        class RatioFeatures(FeatureSet):
+            revenue = Feature(dtype="numeric")
+            cost = Feature(dtype="numeric")
+            margin = Feature(
+                dtype="derived",
+                source_columns=["revenue", "cost"],
+                derived_feature_fn=lambda df, col_a, col_b:
+                    (df[col_a] - df[col_b]) / df[col_a],
+                kwargs={"col_a": "revenue", "col_b": "cost"},
+            )
+
+        fs = RatioFeatures()
+        result = fs.fit_transform(df)
+        assert "margin" in result.columns
+        # revenue=[100,200,300,400,500], cost=[80,160,240,320,400]
+        # margin = (rev - cost) / rev = [0.2, 0.2, 0.2, 0.2, 0.2]
+        assert list(result["margin"]) == [0.2, 0.2, 0.2, 0.2, 0.2]
+
 
 class TestFeatureSet:
     """Tests for FeatureSet class."""

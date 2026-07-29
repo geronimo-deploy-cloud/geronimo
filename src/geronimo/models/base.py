@@ -1,8 +1,9 @@
 """Model base class for ML model definition."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional
 
+from geronimo.models.objective import ObjectiveSpec
 from geronimo.models.params import HyperParams
 
 if TYPE_CHECKING:
@@ -47,6 +48,14 @@ class Model(ABC):
 
     features: Optional["FeatureSet"] = None
     """The associated feature set."""
+
+    objective: Optional[ObjectiveSpec] = None
+    """The training objective (loss function) specification.
+
+    If ``None``, no objective is declared and training proceeds with
+    the estimator's default loss — preserving backward compatibility
+    with existing models that don't declare an objective.
+    """
 
     estimator: Any
     """The underlying model estimator (e.g., sklearn object)."""

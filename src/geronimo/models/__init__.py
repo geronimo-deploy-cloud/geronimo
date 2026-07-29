@@ -13,8 +13,9 @@ Scikit-Learn, etc.) into the Geronimo ecosystem.
 """
 
 from geronimo.models.base import Model
+from geronimo.models.objective import ObjectiveSpec
 from geronimo.models.params import HyperParams
 
-__all__ = ["Model", "HyperParams"]
+__all__ = ["Model", "ObjectiveSpec", "HyperParams"]
 
 __docformat__ = "google"

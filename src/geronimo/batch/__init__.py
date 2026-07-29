@@ -12,9 +12,10 @@ This module helps create robust, scheduled ML pipelines that can run on various
 execution environments.
 """
 
+from geronimo.batch.output_spec import OutputSpec
 from geronimo.batch.pipeline import BatchPipeline
 from geronimo.batch.schedule import Schedule, Trigger
 
-__all__ = ["BatchPipeline", "Schedule", "Trigger"]
+__all__ = ["BatchPipeline", "OutputSpec", "Schedule", "Trigger"]
 
 __docformat__ = "google"

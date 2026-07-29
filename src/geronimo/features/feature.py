@@ -75,6 +75,7 @@ class Feature:
     def __init__(
         self,
         dtype: Literal["numeric", "categorical", "text", "derived"] = "numeric",
+        data_type: Optional[type] = None,
         transformer: Optional[Any] = None,
         encoder: Optional[Any] = None,
         source_column: Optional[str] = None,
@@ -93,6 +94,14 @@ class Feature:
                 - "categorical": Categorical/discrete values
                 - "text": Text data (typically dropped or embedded)
                 - "derived": Computed from other columns via derived_feature_fn
+
+            data_type: Optional Python type for runtime data enforcement.
+                When set, fit/transform will validate and coerce incoming data
+                to this type. If the data already matches, proceeds silently.
+                If coercible, coerces and emits a logging.warning. If not
+                coercible, raises a TypeError. If not set, no type checking
+                occurs (backward-compatible).
+                Examples: float, int, str
 
             transformer: Sklearn-compatible transformer for numeric features.
                 Applied AFTER derived_feature_fn if both are provided.
@@ -130,6 +139,7 @@ class Feature:
                 a warning is logged.
         """
         self.dtype = dtype
+        self.data_type = data_type
         self.transformer = transformer
         self.encoder = encoder
         self.source_column = source_column
@@ -143,6 +153,9 @@ class Feature:
     
     dtype: Literal["numeric", "categorical", "text", "derived"]
     """Feature data type."""
+
+    data_type: Optional[type]
+    """Optional Python type for runtime data enforcement (e.g. float, int, str)."""
 
     transformer: Optional[Any]
     """Sklearn-compatible transformer for numeric features."""
@@ -293,5 +306,94 @@ class Feature:
             extras.append(f"required={self.required}")
         if self.default is not None:
             extras.append(f"default={self.default}")
+        if self.data_type is not None:
+            extras.append(f"data_type={self.data_type.__name__}")
         extra_str = f", {', '.join(extras)}" if extras else ""
         return f"Feature({self.name}, dtype={self.dtype}{extra_str})"
+    def _data_type_matches(self, data) -> bool:
+        """Check whether data's actual type matches the declared data_type.
+
+        Maps pandas/numpy dtypes to Python types for comparison.
+
+        Args:
+            data: pandas Series, numpy array, or Python iterable.
+
+        Returns:
+            True if the data's type matches the declared data_type, False otherwise.
+        """
+        if self.data_type is None:
+            return True
+
+        if hasattr(data, "dtype"):
+            dtype_str = str(data.dtype)
+            if dtype_str.startswith("float"):
+                return self.data_type == float
+            elif dtype_str.startswith("int"):
+                return self.data_type == int
+            elif dtype_str == "object":
+                return self.data_type == str
+            elif dtype_str == "category":
+                return self.data_type == str
+            else:
+                return self.data_type == data.dtype
+        else:
+            return type(data) == self.data_type
+
+    def _validate_and_coerce(self, data) -> Any:
+        """Validate and coerce data to the declared data_type.
+
+        Behavior:
+            - If data_type is None (default): no-op, return data unchanged.
+            - If data already matches data_type: no-op, return data unchanged.
+            - If data is coercible: coerce and emit a logging.warning.
+            - If data is not coercible: raise a TypeError.
+
+        Args:
+            data: pandas Series, numpy array, or Python iterable.
+
+        Returns:
+            The (possibly coerced) data.
+
+        Raises:
+            TypeError: If data cannot be coerced to the declared data_type.
+        """
+        if self.data_type is None:
+            return data
+
+        # If data already matches the declared type, no coercion needed
+        if self._data_type_matches(data):
+            return data
+
+        # Attempt coercion
+        actual_type = self._get_actual_type(data)
+        try:
+            if hasattr(data, "dtype"):
+                # pandas Series or numpy array
+                data = data.astype(self.data_type)
+            else:
+                # Python list or other iterable
+                data = [self.data_type(d) for d in data]
+        except (TypeError, ValueError, AttributeError) as e:
+            raise TypeError(
+                f"Feature '{self.name}': expected {self._format_type(self.data_type)}, received {actual_type} and could not coerce"
+            ) from e
+
+        # Coercion succeeded — emit warning
+        logger.warning(
+            f"Feature '{self.name}': coerced data from {actual_type} to {self._format_type(self.data_type)}"
+        )
+        return data
+
+    @staticmethod
+    def _get_actual_type(data) -> str:
+        """Get a string representation of data's actual type."""
+        if hasattr(data, "dtype"):
+            return str(data.dtype)
+        return type(data).__name__
+
+    @staticmethod
+    def _format_type(t) -> str:
+        """Format a type for display in error/warning messages."""
+        if hasattr(t, "__name__"):
+            return t.__name__
+        return str(t)

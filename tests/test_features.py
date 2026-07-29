@@ -8,6 +8,187 @@ import pytest
 from geronimo.features import Feature, FeatureSet
 
 
+class TestFeatureDataTypes:
+    """Tests for Feature data_type enforcement."""
+
+    def test_feature_accepts_data_type_arg(self):
+        """Feature accepts a data_type keyword argument at instantiation."""
+        f = Feature(dtype="numeric", data_type=float)
+        assert f.data_type == float
+
+    def test_feature_no_data_type_is_none(self):
+        """Feature without data_type has data_type == None."""
+        f = Feature(dtype="numeric")
+        assert f.data_type is None
+
+    # ---- Matching type: no-op ----
+
+    def test_matching_type_proceeds_silently(self, caplog):
+        """Calling fit with data that matches data_type proceeds silently."""
+        f = Feature(dtype="numeric", data_type=float)
+        f._name = "age"
+        series = pd.Series([1.0, 2.0, 3.0])
+        result = f._validate_and_coerce(series)
+        assert list(result) == [1.0, 2.0, 3.0]
+        assert len(caplog.records) == 0
+
+    def test_matching_type_int(self, caplog):
+        """int data matching data_type=int proceeds silently."""
+        f = Feature(dtype="numeric", data_type=int)
+        f._name = "count"
+        series = pd.Series([1, 2, 3], dtype="int64")
+        result = f._validate_and_coerce(series)
+        assert list(result) == [1, 2, 3]
+        assert len(caplog.records) == 0
+
+    # ---- Coercible type: warning + coercion ----
+
+    def test_coercible_int_to_float_emits_warning(self, caplog):
+        """int data coerced to float emits a logging.warning."""
+        f = Feature(dtype="numeric", data_type=float)
+        f._name = "age"
+        series = pd.Series([25, 35, 45], dtype="int64")
+        with caplog.at_level(logging.WARNING):
+            result = f._validate_and_coerce(series)
+        assert len(caplog.records) == 1
+        assert "Feature 'age': coerced data from" in caplog.text
+        assert "to float" in caplog.text
+        # Check the values are float
+        assert all(isinstance(v, float) for v in result)
+
+    def test_coercible_int_to_str_emits_warning(self, caplog):
+        """int data coerced to str emits a logging.warning."""
+        f = Feature(dtype="categorical", data_type=str)
+        f._name = "category"
+        series = pd.Series([1, 2, 3], dtype="int64")
+        with caplog.at_level(logging.WARNING):
+            result = f._validate_and_coerce(series)
+        assert len(caplog.records) == 1
+        assert "Feature 'category': coerced data from" in caplog.text
+        assert "to str" in caplog.text
+
+    def test_coercible_float_to_int_emits_warning(self, caplog):
+        """float data coerced to int emits a logging.warning."""
+        f = Feature(dtype="numeric", data_type=int)
+        f._name = "count"
+        series = pd.Series([1.0, 2.0, 3.0], dtype="float64")
+        with caplog.at_level(logging.WARNING):
+            result = f._validate_and_coerce(series)
+        assert len(caplog.records) == 1
+        assert "Feature 'count': coerced data from" in caplog.text
+        assert "to int" in caplog.text
+
+    # ---- Incompatible type: TypeError ----
+
+    def test_incompatible_type_raises_type_error(self):
+        """Calling fit with data that cannot be coerced raises TypeError."""
+        f = Feature(dtype="numeric", data_type=int)
+        f._name = "age"
+        series = pd.Series(["a", "b", "c"])
+        with pytest.raises(TypeError, match="Feature 'age': expected int, received object and could not coerce"):
+            f._validate_and_coerce(series)
+
+    def test_incompatible_type_error_includes_feature_name(self):
+        """TypeError message identifies the feature name."""
+        f = Feature(dtype="numeric", data_type=float)
+        f._name = "price"
+        series = pd.Series(["x" for _ in range(3)])
+        with pytest.raises(TypeError, match="Feature 'price': expected float"):
+            f._validate_and_coerce(series)
+
+    def test_incompatible_type_error_includes_types(self):
+        """TypeError message includes declared and received types."""
+        f = Feature(dtype="numeric", data_type=int)
+        f._name = "label"
+        series = pd.Series(["x" for _ in range(3)])
+        with pytest.raises(TypeError, match="could not coerce"):
+            f._validate_and_coerce(series)
+
+    # ---- No data_type: backward-compatible no-op ----
+
+    def test_no_data_type_no_enforcement(self):
+        """Feature without data_type: no errors, no warnings, no coercion."""
+        f = Feature(dtype="numeric")
+        f._name = "age"
+        series = pd.Series(["a", "b", "c"])
+        result = f._validate_and_coerce(series)
+        assert list(result) == ["a", "b", "c"]
+
+    def test_no_data_type_with_numeric_data_no_error(self):
+        """Feature without data_type: numeric data passes through fine."""
+        f = Feature(dtype="numeric")
+        f._name = "age"
+        series = pd.Series([25, 35, 45])
+        result = f._validate_and_coerce(series)
+        assert list(result) == [25, 35, 45]
+
+    # ---- Integration: FeatureSet with data_type ----
+
+    def test_feature_set_with_data_type_coerces_and_warns(self, caplog):
+        """FeatureSet processes features with data_type, coercing when needed."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", data_type=float)
+
+        fs = MyFeatures()
+        df = pd.DataFrame({"age": [25, 35, 45]})
+        with caplog.at_level(logging.WARNING):
+            result = fs.fit_transform(df)
+        assert "age" in result.columns
+        assert len(caplog.records) >= 1
+        assert "coerced" in caplog.text.lower()
+
+    def test_feature_set_with_data_type_matches_silently(self, caplog):
+        """FeatureSet with data_type matching data emits no warnings."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", data_type=float)
+
+        fs = MyFeatures()
+        df = pd.DataFrame({"age": [25.0, 35.0, 45.0]})
+        with caplog.at_level(logging.WARNING):
+            result = fs.fit_transform(df)
+        assert "age" in result.columns
+        # Filter only our feature's warnings
+        relevant = [r for r in caplog.records if "Feature 'age'" in r.message]
+        assert len(relevant) == 0
+
+    def test_feature_set_with_data_type_incompatible_raises(self):
+        """FeatureSet with incompatible data_type raises TypeError."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", data_type=int)
+
+        fs = MyFeatures()
+        df = pd.DataFrame({"age": ["x", "y", "z"]})
+        with pytest.raises(TypeError):
+            fs.fit_transform(df)
+
+    def test_feature_set_backward_compat_no_data_type(self, sample_df):
+        """Existing FeatureSet behavior without data_type is unchanged."""
+        class SimpleFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            income = Feature(dtype="numeric")
+
+        fs = SimpleFeatures()
+        result = fs.fit_transform(sample_df)
+        assert fs.is_fitted is True
+        assert "age" in result.columns
+        assert "income" in result.columns
+        assert len(result) == len(sample_df)
+
+    def test_feature_repr_includes_data_type(self):
+        """repr includes data_type when set."""
+        f = Feature(dtype="numeric", data_type=float)
+        f._name = "age"
+        r = repr(f)
+        assert "data_type=float" in r
+
+    def test_feature_repr_no_data_type_when_none(self):
+        """repr does not include data_type when it is None."""
+        f = Feature(dtype="numeric")
+        f._name = "age"
+        r = repr(f)
+        assert "data_type" not in r
+
+
 class TestFeature:
     """Tests for Feature descriptor."""
 

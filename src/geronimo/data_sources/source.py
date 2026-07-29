@@ -10,6 +10,7 @@ from typing import Any, Callable, Literal, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     pass  # JoinSpec forward reference handled via string annotation
 
+import numpy as np
 import pandas as pd
 
 from geronimo.data_sources.query import Query
@@ -100,6 +101,9 @@ class DataSource:
     join_spec: Optional["JoinSpec"]
     """Specification for joining to this source."""
 
+    split_spec: Optional["SplitSpec"]
+    """Specification for splitting this source into train/eval sets."""
+
     def __init__(
         self,
         name: str,
@@ -110,6 +114,7 @@ class DataSource:
         connection_params: Optional[dict[str, Any]] = None,
         connection: Optional[DatabaseConnection] = None,
         join_spec: Optional["JoinSpec"] = None,
+        split_spec: Optional["SplitSpec"] = None,
     ):
         """Initialize data source.
 
@@ -122,6 +127,8 @@ class DataSource:
                     Must return pd.DataFrame - validated at runtime.
             connection_params: Optional connection parameters (overrides env vars).
             connection: Optional custom DatabaseConnection implementation.
+            join_spec: Optional specification for joining to this source.
+            split_spec: Optional specification for splitting into train/eval sets.
         
         Raises:
             ValueError: If required arguments are missing for the source type.
@@ -134,6 +141,7 @@ class DataSource:
         self.connection_params = connection_params or {}
         self._custom_connection = connection
         self.join_spec = join_spec
+        self.split_spec = split_spec
 
         # Validate required arguments based on source type
         if self.source == SourceType.FUNC:
@@ -169,6 +177,26 @@ class DataSource:
             return self._load_function(**params)
         else:
             return self._load_database(**params)
+
+    def split(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Load data and split into training and evaluation sets.
+
+        Convenience method that loads the DataSource and delegates to
+        ``self.split_spec.split(df)``.  Raises ``ValueError`` if no
+        ``split_spec`` was provided.
+
+        Returns:
+            Tuple of (train_df, eval_df) DataFrames.
+
+        Raises:
+            ValueError: If this DataSource has no ``split_spec``.
+        """
+        if self.split_spec is None:
+            raise ValueError(
+                f"DataSource '{self.name}' has no split_spec. "
+                f"Provide a SplitSpec to enable splitting."
+            )
+        return self.split_spec.split(self.load())
     
     def _load_function(self, **params) -> pd.DataFrame:
         """Load data by calling the handle function.
@@ -235,24 +263,158 @@ class DataSource:
 
 
 @dataclass
+class SplitSpec:
+    """Specification for splitting a DataSource into training and evaluation sets.
+
+    Declared on a DataSource alongside ``join_spec`` so that how a dataset
+    is split into training and evaluation portions is inspectable at
+    definition time, alongside how it is joined to other sources.
+
+    This design attaches ``SplitSpec`` to ``DataSource`` (not ``Model``)
+    because splitting is a property of the *data*, not the model.
+    ``DataSource.load()`` returns a DataFrame; the split is the natural
+    next operation. ``Model.train()`` simply receives (X, y) post-split.
+
+    Example::
+
+        ```python
+        from geronimo.data_sources import DataSource, SplitSpec
+
+        training_data = DataSource(
+            name="sales",
+            source="file",
+            path="data/sales.csv",
+            split_spec=SplitSpec(
+                strategy="random",
+                ratio=0.8,
+                random_seed=42,
+            ),
+        )
+
+        train_df, eval_df = training_data.split()
+        ```
+
+    Attributes:
+        strategy: One of ``"random"`` or ``"time"``.
+        ratio: Fraction of rows assigned to the training set (0 < ratio < 1).
+               Defaults to ``0.8`` (80/20 split).
+        random_seed: Seed for reproducibility on random splits. Defaults to ``42``.
+        datetime_column: Column name used for time-based splits (required when
+                         ``strategy="time"``).
+        cutoff: Timestamp string or datetime object defining the time-based
+                split boundary. Rows with ``datetime_column <= cutoff`` go
+                to training; rows with ``datetime_column > cutoff`` go to
+                evaluation (required when ``strategy="time"``).
+    """
+
+    strategy: str = "random"
+    ratio: float = 0.8
+    random_seed: int = 42
+    datetime_column: Optional[str] = None
+    cutoff: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate split_spec parameters after initialization."""
+        if self.ratio <= 0 or self.ratio >= 1:
+            raise ValueError(
+                f"Split ratio must be between 0 and 1 (exclusive). "
+                f"Got: {self.ratio}."
+            )
+
+    def split(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Split a DataFrame into training and evaluation sets.
+
+        Args:
+            df: Input DataFrame to split.
+
+        Returns:
+            Tuple of (train_df, eval_df) DataFrames.
+
+        Raises:
+            ValueError: If the strategy is unsupported, ratio is invalid,
+                        required time-based fields are missing, or the
+                        datetime column does not exist in *df*.
+        """
+        if self.strategy == "random":
+            return self._random_split(df)
+        elif self.strategy == "time":
+            return self._time_split(df)
+        else:
+            raise ValueError(
+                f"Unsupported split strategy: '{self.strategy}'. "
+                f"Supported strategies: 'random', 'time'."
+            )
+
+    def _random_split(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Random split by row index, deterministic given the seed."""
+        n = len(df)
+        if n == 0:
+            raise ValueError("Cannot split an empty DataFrame.")
+
+        rng = np.random.RandomState(self.random_seed)
+        indices = rng.permutation(n)
+
+        split_idx = int(n * self.ratio)
+        train_idx = indices[:split_idx]
+        eval_idx = indices[split_idx:]
+
+        return df.iloc[train_idx].reset_index(drop=True), df.iloc[eval_idx].reset_index(
+            drop=True
+        )
+
+    def _time_split(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Time-based split: rows <= cutoff go to training, > cutoff to eval."""
+        if not self.datetime_column:
+            raise ValueError(
+                f"Time-based split requires 'datetime_column' to be set. "
+                f"Got: {self.datetime_column!r}."
+            )
+        if not self.cutoff:
+            raise ValueError(
+                f"Time-based split requires 'cutoff' to be set. "
+                f"Got: {self.cutoff!r}."
+            )
+        if self.datetime_column not in df.columns:
+            raise ValueError(
+                f"Datetime column '{self.datetime_column}' not found in the data. "
+                f"Available columns: {list(df.columns)}."
+            )
+
+        # Parse cutoff to datetime
+        cutoff_dt = pd.to_datetime(self.cutoff)
+        df_copy = df.copy()
+
+        # Ensure the datetime column is parsed
+        df_copy[self.datetime_column] = pd.to_datetime(df_copy[self.datetime_column])
+
+        train_mask = df_copy[self.datetime_column] <= cutoff_dt
+        eval_mask = df_copy[self.datetime_column] > cutoff_dt
+
+        train_df = df_copy[train_mask].reset_index(drop=True)
+        eval_df = df_copy[eval_mask].reset_index(drop=True)
+
+        return train_df, eval_df
+
+
+@dataclass
 class JoinSpec:
     """Specification for joining a DataSource to the primary source.
-    
+
     Used when combining multiple DataSources that share a common key.
     The first DataSource in a list is treated as the primary; subsequent
     sources are joined to it using their JoinSpec.
-    
+
     Example:
         ```python
         from geronimo.data_sources import DataSource, JoinSpec
-        
+
         # Primary training source
         training_customers = DataSource(
             name="customers",
             source="file",
             path="data/customers.csv",
         )
-        
+
         # Secondary source to join
         training_transactions = DataSource(
             name="transactions",
@@ -265,7 +427,7 @@ class JoinSpec:
             ),
         )
         ```
-    
+
     Attributes:
         left_on: Column name in the primary (left) source.
         right_on: Column name in this (right) source.

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, TYPE_CHECKING
 
 from geronimo.models.params import HyperParams
+from geronimo.models.calibration import CalibrationSpec
 
 if TYPE_CHECKING:
     from geronimo.artifacts import ArtifactStore
@@ -48,8 +49,21 @@ class Model(ABC):
     features: Optional["FeatureSet"] = None
     """The associated feature set."""
 
+    calibration: Optional[CalibrationSpec] = None
+    """Optional probability calibration specification.
+
+    When None (the default), models train and predict exactly as they
+    do today — no calibration is applied.
+
+    When set, a held-out portion of training data is used to fit
+    calibration on top of the base estimator.
+    """
+
     estimator: Any
     """The underlying model estimator (e.g., sklearn object)."""
+
+    _calibrated_estimator: Any
+    """Calibrated estimator, set during train() when calibration is configured."""
 
     _is_fitted: bool
     """Internal flag tracking whether the model has been trained."""

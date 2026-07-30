@@ -258,22 +258,12 @@ class TestWriteS3:
     def test_write_s3_boto3_not_installed(self):
         """Test error when boto3 is not installed."""
         df = pd.DataFrame({"a": [1]})
-        # Remove boto3 from sys.modules if present, then patch the import
-        boto3_was_present = "boto3" in sys.modules
-        if boto3_was_present:
-            del sys.modules["boto3"]
-        # Remove any cached boto3 references
-        for mod in list(sys.modules.keys()):
-            if mod == "boto3" or mod.startswith("boto3."):
-                del sys.modules[mod]
-        
-        with pytest.raises(RuntimeError, match="S3 output requires the 'boto3'"):
-            _write_s3(df, "s3://bucket/test.csv", Format.CSV)
-        
-        # Restore boto3 if it was present
-        if boto3_was_present:
-            import boto3  # noqa: F401
-            sys.modules["boto3"] = boto3
+
+        with patch.dict(sys.modules, {"boto3": None}):
+            with pytest.raises(
+                RuntimeError, match="S3 output requires the 'boto3'"
+            ):
+                _write_s3(df, "s3://bucket/test.csv", Format.CSV)
 
 
 class TestWriteOutput:

@@ -1,8 +1,9 @@
 """Model base class for ML model definition."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional
 
+from geronimo.models.objective import ObjectiveSpec
 from geronimo.models.params import HyperParams
 from geronimo.models.calibration import CalibrationSpec
 
@@ -56,7 +57,14 @@ class Model(ABC):
     do today — no calibration is applied.
 
     When set, a held-out portion of training data is used to fit
-    calibration on top of the base estimator.
+    calibration on top of the base estimator."""
+    
+    objective: Optional[ObjectiveSpec] = None
+    """The training objective (loss function) specification.
+
+    If ``None``, no objective is declared and training proceeds with
+    the estimator's default loss — preserving backward compatibility
+    with existing models that don't declare an objective.
     """
 
     estimator: Any

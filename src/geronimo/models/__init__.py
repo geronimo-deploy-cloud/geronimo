@@ -16,7 +16,13 @@ Scikit-Learn, etc.) into the Geronimo ecosystem.
 from geronimo.models.base import Model
 from geronimo.models.calibration import CalibrationSpec
 from geronimo.models.params import HyperParams
+from geronimo.models.objective import ObjectiveSpec
 
-__all__ = ["Model", "HyperParams", "CalibrationSpec"]
+__all__ = [
+    "CalibrationSpec",
+    "HyperParams",
+    "Model", 
+    "ObjectiveSpec"
+]
 
 __docformat__ = "google"

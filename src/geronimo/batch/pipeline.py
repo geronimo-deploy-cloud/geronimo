@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from geronimo.batch.output_spec import OutputSpec
     from geronimo.batch.schedule import Schedule, Trigger
     from geronimo.models import Model
 
@@ -47,6 +48,7 @@ class BatchPipeline(ABC):
     model_class: type["Model"] = None
     schedule: Optional["Schedule"] = None
     trigger: Optional["Trigger"] = None
+    output: Optional["OutputSpec"] = None
     artifact_project: Optional[str] = None
     artifact_version: Optional[str] = None
 
@@ -86,13 +88,45 @@ class BatchPipeline(ABC):
     def execute(self) -> Any:
         """Execute the pipeline.
 
+        Validates that an OutputSpec is configured before running. If no
+        output destination is declared, raises a clear error directing the
+        developer to configure one — batch jobs without a declared output
+        destination should not silently do nothing.
+
         Returns:
             Pipeline result.
+
+        Raises:
+            RuntimeError: If the pipeline is not initialized or if no
+                OutputSpec is configured.
         """
         if not self._is_initialized:
             raise RuntimeError("Pipeline not initialized. Call initialize() first.")
 
-        return self.run()
+        if self.output is None:
+            raise RuntimeError(
+                f"No OutputSpec configured for pipeline '{self.__class__.__name__}'. "
+                f"Add an 'output' class attribute with an OutputSpec to declare "
+                f"where results should be written. Example:\n"
+                f"\n"
+                f"    from geronimo.batch import OutputSpec\n"
+                f"\n"
+                f"    class MyPipeline(BatchPipeline):\n"
+                f"        output = OutputSpec(\n"
+                f"            destination='local',\n"
+                f"            path='./outputs',\n"
+                f"            format='parquet',\n"
+                f"        )"
+            )
+
+        result = self.run()
+
+        # Write output if OutputSpec is configured
+        from geronimo.batch.output_spec import _write_output
+
+        _write_output(result, self.output, self.__class__.__name__)
+
+        return result
 
     @abstractmethod
     def run(self) -> Any:

@@ -9,6 +9,6 @@ It provides a unified framework for:
 - Or managed deployments via Geronimo Deploy Cloud
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __docformat__ = "google"

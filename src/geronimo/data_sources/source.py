@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from enum import Enum
@@ -15,6 +16,8 @@ import pandas as pd
 
 from geronimo.data_sources.query import Query
 from geronimo.data_sources.connection import get_connection, DatabaseConnection
+
+logger = logging.getLogger(__name__)
 
 
 class SourceType(str, Enum):
@@ -103,6 +106,9 @@ class DataSource:
 
     split_spec: Optional["SplitSpec"]
     """Specification for splitting this source into train/eval sets."""
+    
+    concat_spec: Optional["ConcatSpec"]
+    """Specification for concatenating multiple DataSources row-wise."""
 
     def __init__(
         self,
@@ -115,6 +121,7 @@ class DataSource:
         connection: Optional[DatabaseConnection] = None,
         join_spec: Optional["JoinSpec"] = None,
         split_spec: Optional["SplitSpec"] = None,
+        concat_spec: Optional["ConcatSpec"] = None,
     ):
         """Initialize data source.
 
@@ -129,9 +136,11 @@ class DataSource:
             connection: Optional custom DatabaseConnection implementation.
             join_spec: Optional specification for joining to this source.
             split_spec: Optional specification for splitting into train/eval sets.
+            concat_spec: Optional specification for concatenating multiple DataSources.
         
         Raises:
-            ValueError: If required arguments are missing for the source type.
+            ValueError: If required arguments are missing for the source type,
+                or if both join_spec and concat_spec are provided.
         """
         self.name = name
         self.source = SourceType(source) if isinstance(source, str) else source
@@ -142,6 +151,14 @@ class DataSource:
         self._custom_connection = connection
         self.join_spec = join_spec
         self.split_spec = split_spec
+        self.concat_spec = concat_spec
+
+        # Mutual-exclusion guard: cannot have both join_spec and concat_spec
+        if join_spec is not None and concat_spec is not None:
+            raise ValueError(
+                f"DataSource '{self.name}' cannot have both join_spec and concat_spec. "
+                "Use one or the other, not both."
+            )
 
         # Validate required arguments based on source type
         if self.source == SourceType.FUNC:
@@ -169,9 +186,12 @@ class DataSource:
             DataFrame with loaded data.
         
         Raises:
-            DataSourceError: If function source doesn't return a DataFrame.
+            DataSourceError: If function source doesn't return a DataFrame,
+                or if concat_spec column validation fails.
         """
-        if self.source == SourceType.FILE:
+        if self.concat_spec is not None:
+            return self._load_concat(**params)
+        elif self.source == SourceType.FILE:
             return self._load_file()
         elif self.source == SourceType.FUNC:
             return self._load_function(**params)
@@ -257,6 +277,67 @@ class DataSource:
         # Use context manager for automatic connection cleanup
         with connection:
             return connection.execute(sql)
+
+    def _load_concat(self, **params) -> pd.DataFrame:
+        """Load data by concatenating multiple constituent DataSources row-wise.
+
+        Loads each constituent DataSource in the order declared in concat_spec,
+        validates column consistency, and concatenates with a reset index.
+
+        Args:
+            **params: Keyword arguments passed to each constituent source's load.
+
+        Returns:
+            Single concatenated DataFrame with reset index.
+
+        Raises:
+            DataSourceError: If constituent sources have mismatched column names.
+        """
+        sources = self.concat_spec.sources
+        dataframes = []
+
+        for source in sources:
+            df = source.load(**params)
+            dataframes.append(df)
+
+        # Validate column names across all sources
+        base_columns = list(dataframes[0].columns)
+        base_columns_set = set(base_columns)
+
+        for i, df in enumerate(dataframes[1:], start=1):
+            source_name = sources[i].name
+            df_columns_set = set(df.columns)
+
+            if df_columns_set != base_columns_set:
+                missing = base_columns_set - df_columns_set
+                extra = df_columns_set - base_columns_set
+                delta = ""
+                if missing:
+                    delta += f"Missing columns: {sorted(missing)}. "
+                if extra:
+                    delta += f"Extra columns: {sorted(extra)}."
+                raise DataSourceError(
+                    f"DataSource '{source_name}' has different columns than the "
+                    f"first source. {delta.strip()}"
+                )
+
+        # Warn about dtype mismatches for shared columns
+        all_columns = base_columns
+        for i, df in enumerate(dataframes[1:], start=1):
+            source_name = sources[i].name
+            for col in all_columns:
+                dtype_first = dataframes[0][col].dtype
+                dtype_current = df[col].dtype
+                if dtype_first != dtype_current:
+                    logger.warning(
+                        f"DataSource '{source_name}' has dtype '{dtype_current}' for "
+                        f"column '{col}' which differs from the first source's "
+                        f"dtype '{dtype_first}'. Proceeding with concatenation."
+                    )
+
+        # Concatenate row-wise with reset index
+        result = pd.concat(dataframes, axis=0, ignore_index=True)
+        return result
 
     def __repr__(self) -> str:
         return f"DataSource({self.name}, source={self.source.value})"
@@ -436,6 +517,55 @@ class JoinSpec:
     left_on: str
     right_on: str
     how: str = "left"
+
+
+@dataclass
+class ConcatSpec:
+    """Specification for concatenating multiple DataSources row-wise.
+    
+    Used when stacking datasets that share the same schema — for example,
+    training data from multiple time windows, regions, or upstream sources.
+    All constituent sources must have identical column names; dtypes may
+    differ (a warning is emitted in that case).
+    
+    Example:
+        ```python
+        from geronimo.data_sources import DataSource, ConcatSpec
+        
+        # Two sources with the same schema
+        q1_data = DataSource(
+            name="sales_q1",
+            source="file",
+            path="data/sales_q1.csv",
+        )
+        q2_data = DataSource(
+            name="sales_q2",
+            source="file",
+            path="data/sales_q2.csv",
+        )
+        
+        # Concatenate row-wise
+        sales = DataSource(
+            name="sales_all",
+            source="concat",
+            concat_spec=ConcatSpec(sources=[q1_data, q2_data]),
+        )
+        df = sales.load()
+        ```
+    
+    Attributes:
+        sources: List of two or more DataSource instances to concatenate
+            row-wise. Sources are loaded in the order declared.
+    """
+    sources: list[DataSource]
+
+    def __post_init__(self):
+        """Validate that at least two sources are provided."""
+        if len(self.sources) < 2:
+            raise ValueError(
+                f"ConcatSpec requires at least two DataSource instances, "
+                f"got {len(self.sources)}."
+            )
 
 
 def collect_data_sources(module, prefix: str) -> list[DataSource]:

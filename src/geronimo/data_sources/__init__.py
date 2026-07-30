@@ -18,7 +18,7 @@ Supported connections:
 This layer handles connection pooling, query generation, and data type mapping.
 """
 
-from geronimo.data_sources.source import DataSource, JoinSpec, SplitSpec, collect_data_sources
+from geronimo.data_sources.source import DataSource, JoinSpec, ConcatSpec, SplitSpec, collect_data_sources
 from geronimo.data_sources.query import Query
 from geronimo.data_sources.connection import (
     DatabaseConnection,
@@ -33,6 +33,7 @@ __all__ = [
     "DataSource",
     "JoinSpec",
     "SplitSpec",
+    "ConcatSpec",
     "collect_data_sources",
     "Query",
     "DatabaseConnection",

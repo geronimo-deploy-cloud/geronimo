@@ -8,6 +8,187 @@ import pytest
 from geronimo.features import Feature, FeatureSet
 
 
+class TestFeatureDataTypes:
+    """Tests for Feature data_type enforcement."""
+
+    def test_feature_accepts_data_type_arg(self):
+        """Feature accepts a data_type keyword argument at instantiation."""
+        f = Feature(dtype="numeric", data_type=float)
+        assert f.data_type == float
+
+    def test_feature_no_data_type_is_none(self):
+        """Feature without data_type has data_type == None."""
+        f = Feature(dtype="numeric")
+        assert f.data_type is None
+
+    # ---- Matching type: no-op ----
+
+    def test_matching_type_proceeds_silently(self, caplog):
+        """Calling fit with data that matches data_type proceeds silently."""
+        f = Feature(dtype="numeric", data_type=float)
+        f._name = "age"
+        series = pd.Series([1.0, 2.0, 3.0])
+        result = f._validate_and_coerce(series)
+        assert list(result) == [1.0, 2.0, 3.0]
+        assert len(caplog.records) == 0
+
+    def test_matching_type_int(self, caplog):
+        """int data matching data_type=int proceeds silently."""
+        f = Feature(dtype="numeric", data_type=int)
+        f._name = "count"
+        series = pd.Series([1, 2, 3], dtype="int64")
+        result = f._validate_and_coerce(series)
+        assert list(result) == [1, 2, 3]
+        assert len(caplog.records) == 0
+
+    # ---- Coercible type: warning + coercion ----
+
+    def test_coercible_int_to_float_emits_warning(self, caplog):
+        """int data coerced to float emits a logging.warning."""
+        f = Feature(dtype="numeric", data_type=float)
+        f._name = "age"
+        series = pd.Series([25, 35, 45], dtype="int64")
+        with caplog.at_level(logging.WARNING):
+            result = f._validate_and_coerce(series)
+        assert len(caplog.records) == 1
+        assert "Feature 'age': coerced data from" in caplog.text
+        assert "to float" in caplog.text
+        # Check the values are float
+        assert all(isinstance(v, float) for v in result)
+
+    def test_coercible_int_to_str_emits_warning(self, caplog):
+        """int data coerced to str emits a logging.warning."""
+        f = Feature(dtype="categorical", data_type=str)
+        f._name = "category"
+        series = pd.Series([1, 2, 3], dtype="int64")
+        with caplog.at_level(logging.WARNING):
+            result = f._validate_and_coerce(series)
+        assert len(caplog.records) == 1
+        assert "Feature 'category': coerced data from" in caplog.text
+        assert "to str" in caplog.text
+
+    def test_coercible_float_to_int_emits_warning(self, caplog):
+        """float data coerced to int emits a logging.warning."""
+        f = Feature(dtype="numeric", data_type=int)
+        f._name = "count"
+        series = pd.Series([1.0, 2.0, 3.0], dtype="float64")
+        with caplog.at_level(logging.WARNING):
+            result = f._validate_and_coerce(series)
+        assert len(caplog.records) == 1
+        assert "Feature 'count': coerced data from" in caplog.text
+        assert "to int" in caplog.text
+
+    # ---- Incompatible type: TypeError ----
+
+    def test_incompatible_type_raises_type_error(self):
+        """Calling fit with data that cannot be coerced raises TypeError."""
+        f = Feature(dtype="numeric", data_type=int)
+        f._name = "age"
+        series = pd.Series(["a", "b", "c"])
+        with pytest.raises(TypeError, match="Feature 'age': expected int, received object and could not coerce"):
+            f._validate_and_coerce(series)
+
+    def test_incompatible_type_error_includes_feature_name(self):
+        """TypeError message identifies the feature name."""
+        f = Feature(dtype="numeric", data_type=float)
+        f._name = "price"
+        series = pd.Series(["x" for _ in range(3)])
+        with pytest.raises(TypeError, match="Feature 'price': expected float"):
+            f._validate_and_coerce(series)
+
+    def test_incompatible_type_error_includes_types(self):
+        """TypeError message includes declared and received types."""
+        f = Feature(dtype="numeric", data_type=int)
+        f._name = "label"
+        series = pd.Series(["x" for _ in range(3)])
+        with pytest.raises(TypeError, match="could not coerce"):
+            f._validate_and_coerce(series)
+
+    # ---- No data_type: backward-compatible no-op ----
+
+    def test_no_data_type_no_enforcement(self):
+        """Feature without data_type: no errors, no warnings, no coercion."""
+        f = Feature(dtype="numeric")
+        f._name = "age"
+        series = pd.Series(["a", "b", "c"])
+        result = f._validate_and_coerce(series)
+        assert list(result) == ["a", "b", "c"]
+
+    def test_no_data_type_with_numeric_data_no_error(self):
+        """Feature without data_type: numeric data passes through fine."""
+        f = Feature(dtype="numeric")
+        f._name = "age"
+        series = pd.Series([25, 35, 45])
+        result = f._validate_and_coerce(series)
+        assert list(result) == [25, 35, 45]
+
+    # ---- Integration: FeatureSet with data_type ----
+
+    def test_feature_set_with_data_type_coerces_and_warns(self, caplog):
+        """FeatureSet processes features with data_type, coercing when needed."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", data_type=float)
+
+        fs = MyFeatures()
+        df = pd.DataFrame({"age": [25, 35, 45]})
+        with caplog.at_level(logging.WARNING):
+            result = fs.fit_transform(df)
+        assert "age" in result.columns
+        assert len(caplog.records) >= 1
+        assert "coerced" in caplog.text.lower()
+
+    def test_feature_set_with_data_type_matches_silently(self, caplog):
+        """FeatureSet with data_type matching data emits no warnings."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", data_type=float)
+
+        fs = MyFeatures()
+        df = pd.DataFrame({"age": [25.0, 35.0, 45.0]})
+        with caplog.at_level(logging.WARNING):
+            result = fs.fit_transform(df)
+        assert "age" in result.columns
+        # Filter only our feature's warnings
+        relevant = [r for r in caplog.records if "Feature 'age'" in r.message]
+        assert len(relevant) == 0
+
+    def test_feature_set_with_data_type_incompatible_raises(self):
+        """FeatureSet with incompatible data_type raises TypeError."""
+        class MyFeatures(FeatureSet):
+            age = Feature(dtype="numeric", data_type=int)
+
+        fs = MyFeatures()
+        df = pd.DataFrame({"age": ["x", "y", "z"]})
+        with pytest.raises(TypeError):
+            fs.fit_transform(df)
+
+    def test_feature_set_backward_compat_no_data_type(self, sample_df):
+        """Existing FeatureSet behavior without data_type is unchanged."""
+        class SimpleFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            income = Feature(dtype="numeric")
+
+        fs = SimpleFeatures()
+        result = fs.fit_transform(sample_df)
+        assert fs.is_fitted is True
+        assert "age" in result.columns
+        assert "income" in result.columns
+        assert len(result) == len(sample_df)
+
+    def test_feature_repr_includes_data_type(self):
+        """repr includes data_type when set."""
+        f = Feature(dtype="numeric", data_type=float)
+        f._name = "age"
+        r = repr(f)
+        assert "data_type=float" in r
+
+    def test_feature_repr_no_data_type_when_none(self):
+        """repr does not include data_type when it is None."""
+        f = Feature(dtype="numeric")
+        f._name = "age"
+        r = repr(f)
+        assert "data_type" not in r
+
+
 class TestFeature:
     """Tests for Feature descriptor."""
 
@@ -160,6 +341,134 @@ class TestFeature:
         )
         f._name = "derived_feature"
         assert f.check_presence(sample_df) is False
+
+    # =========================================================================
+    # New: args and kwargs binding for derived_feature_fn
+    # =========================================================================
+
+    def test_feature_args_only(self):
+        """Test derived feature bound with positional args only."""
+        def rolling_mean(df, window: int):
+            return df["value"].rolling(window).mean()
+
+        f = Feature(
+            dtype="derived",
+            source_columns=["value"],
+            derived_feature_fn=rolling_mean,
+            args=(3,),
+        )
+        assert f.has_derived_fn is True
+        df = pd.DataFrame({"value": [1.0, 2.0, 3.0, 4.0, 5.0]})
+        result = f.apply(df)
+        # rolling(3).mean(): [nan, nan, 2.0, 3.0, 4.0]
+        assert pd.isna(result.iloc[0])
+        assert pd.isna(result.iloc[1])
+        assert result.iloc[2] == 2.0
+        assert result.iloc[3] == 3.0
+        assert result.iloc[4] == 4.0
+
+    def test_feature_kwargs_only(self):
+        """Test derived feature bound with keyword kwargs only."""
+        def ratio(df, numerator: str, denominator: str):
+            return df[numerator] / df[denominator]
+
+        f = Feature(
+            dtype="derived",
+            source_columns=["revenue", "cost"],
+            derived_feature_fn=ratio,
+            kwargs={"numerator": "revenue", "denominator": "cost"},
+        )
+        assert f.has_derived_fn is True
+        df = pd.DataFrame({"revenue": [100.0, 200.0], "cost": [50.0, 40.0]})
+        result = f.apply(df)
+        assert list(result) == [2.0, 5.0]
+
+    def test_feature_args_and_kwargs(self):
+        """Test derived feature bound with both args and kwargs (no overlap)."""
+        def bounded(df, lower: float, upper: float, col: str):
+            return df[col].clip(lower=lower, upper=upper)
+
+        f = Feature(
+            dtype="derived",
+            source_columns=["score"],
+            derived_feature_fn=bounded,
+            args=(0.0, 100.0),
+            kwargs={"col": "score"},
+        )
+        assert f.has_derived_fn is True
+        df = pd.DataFrame({"score": [-10.0, 50.0, 200.0]})
+        result = f.apply(df)
+        assert list(result) == [0.0, 50.0, 100.0]
+
+    def test_feature_kwargs_none_does_not_crash(self):
+        """Ensure args or kwargs being None (default) does not crash partial."""
+        f = Feature(
+            dtype="derived",
+            source_columns=["a"],
+            derived_feature_fn=lambda df: df["a"],
+        )
+        assert f.has_derived_fn is True
+        df = pd.DataFrame({"a": [1, 2, 3]})
+        result = f.apply(df)
+        assert list(result) == [1, 2, 3]
+
+    def test_feature_repr_with_args_and_kwargs(self):
+        """Test repr includes args/kwargs when set."""
+        def fn(df, window: int):
+            return df
+
+        f = Feature(
+            dtype="derived",
+            derived_feature_fn=fn,
+            args=(7,),
+            kwargs={"col": "x"},
+        )
+        f._name = "test_feature"
+        r = repr(f)
+        assert "args=" in r or "derived_feature_fn" in r
+        assert "kwargs=" in r or "derived_feature_fn" in r
+
+    def test_feature_set_with_bound_args(self, sample_df):
+        """Integration: FeatureSet.fit_transform with derived feature bound via args."""
+        class BoundedFeatures(FeatureSet):
+            age = Feature(dtype="numeric")
+            age_capped = Feature(
+                dtype="derived",
+                source_columns=["age"],
+                derived_feature_fn=lambda df, cap: df["age"].clip(upper=cap),
+                args=(50,),
+            )
+
+        fs = BoundedFeatures()
+        result = fs.fit_transform(sample_df)
+        assert "age_capped" in result.columns
+        # sample_df has ages [25, 35, 45, 55, 65], capped at 50 → [25, 35, 45, 50, 50]
+        assert list(result["age_capped"]) == [25, 35, 45, 50, 50]
+
+    def test_feature_set_with_bound_kwargs(self):
+        """Integration: FeatureSet.fit_transform with derived feature bound via kwargs."""
+        df = pd.DataFrame({
+            "revenue": [100.0, 200.0, 300.0, 400.0, 500.0],
+            "cost": [80.0, 160.0, 240.0, 320.0, 400.0],
+        })
+
+        class RatioFeatures(FeatureSet):
+            revenue = Feature(dtype="numeric")
+            cost = Feature(dtype="numeric")
+            margin = Feature(
+                dtype="derived",
+                source_columns=["revenue", "cost"],
+                derived_feature_fn=lambda df, col_a, col_b:
+                    (df[col_a] - df[col_b]) / df[col_a],
+                kwargs={"col_a": "revenue", "col_b": "cost"},
+            )
+
+        fs = RatioFeatures()
+        result = fs.fit_transform(df)
+        assert "margin" in result.columns
+        # revenue=[100,200,300,400,500], cost=[80,160,240,320,400]
+        # margin = (rev - cost) / rev = [0.2, 0.2, 0.2, 0.2, 0.2]
+        assert list(result["margin"]) == [0.2, 0.2, 0.2, 0.2, 0.2]
 
 
 class TestFeatureSet:

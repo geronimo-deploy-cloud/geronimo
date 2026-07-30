@@ -211,19 +211,23 @@ class FeatureSet:
                 )
             return None
 
+        # Validate and coerce data type (if data_type is set on the feature)
+        raw_data = df[col_name]
+        validated_data = feature._validate_and_coerce(raw_data)
+
         if feature.has_transformer:
             if mode == "fit":
-                feature.transformer.fit(df[[col_name]])
+                feature.transformer.fit(validated_data.values.reshape(-1, 1))
                 return None
             else:  # transform
-                transformed = feature.transformer.transform(df[[col_name]])
+                transformed = feature.transformer.transform(validated_data.values.reshape(-1, 1))
                 return transformed.flatten()
         elif feature.has_encoder:
             if mode == "fit":
-                feature.encoder.fit(df[[col_name]])
+                feature.encoder.fit(validated_data.values.reshape(-1, 1))
                 return None
             else:  # transform
-                encoded = feature.encoder.transform(df[[col_name]])
+                encoded = feature.encoder.transform(validated_data.values.reshape(-1, 1))
                 # Handle multi-column output from encoders
                 if hasattr(feature.encoder, "get_feature_names_out"):
                     enc_names = feature.encoder.get_feature_names_out([col_name])
@@ -233,7 +237,7 @@ class FeatureSet:
         else:
             if mode == "fit":
                 return None
-            return df[col_name].values
+            return validated_data.values
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Fit and transform in one step.

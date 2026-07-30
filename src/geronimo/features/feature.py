@@ -1,7 +1,8 @@
 """Feature descriptor for feature definitions."""
 
 import logging
-from typing import Any, Callable, Literal, Optional
+from functools import partial
+from typing import Any, Callable, Literal, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,7 @@ class Feature:
     def __init__(
         self,
         dtype: Literal["numeric", "categorical", "text", "derived"] = "numeric",
+        data_type: Optional[type] = None,
         transformer: Optional[Any] = None,
         encoder: Optional[Any] = None,
         source_column: Optional[str] = None,
@@ -84,6 +86,8 @@ class Feature:
         description: Optional[str] = None,
         required: bool = True,
         default: Any = None,
+        args: Optional[Tuple[Any, ...]] = None,
+        kwargs: Optional[dict[str, Any]] = None,
     ):
         """Initialize feature.
 
@@ -93,6 +97,14 @@ class Feature:
                 - "categorical": Categorical/discrete values
                 - "text": Text data (typically dropped or embedded)
                 - "derived": Computed from other columns via derived_feature_fn
+
+            data_type: Optional Python type for runtime data enforcement.
+                When set, fit/transform will validate and coerce incoming data
+                to this type. If the data already matches, proceeds silently.
+                If coercible, coerces and emits a logging.warning. If not
+                coercible, raises a TypeError. If not set, no type checking
+                occurs (backward-compatible).
+                Examples: float, int, str
 
             transformer: Sklearn-compatible transformer for numeric features.
                 Applied AFTER derived_feature_fn if both are provided.
@@ -128,21 +140,37 @@ class Feature:
                 absent. Only meaningful when `required=False`. When the feature
                 is missing and a default is set, the default is substituted and
                 a warning is logged.
+
+            args: Positional arguments bound to `derived_feature_fn` at
+                definition time. The function signature must accept `df` as
+                the first argument, followed by these positional arguments.
+                Example: `args=(7,)` for a `window` parameter.
+
+            kwargs: Keyword arguments bound to `derived_feature_fn` at
+                definition time. The function signature must accept `df` as
+                the first argument, followed by these keyword arguments.
+                Example: `kwargs={"col": "price"}` for a `col` parameter.
         """
         self.dtype = dtype
+        self.data_type = data_type
         self.transformer = transformer
         self.encoder = encoder
         self.source_column = source_column
         self.source_columns = source_columns
-        self.derived_feature_fn = derived_feature_fn
+        self._bind_derived_fn(derived_feature_fn, args, kwargs)
         self.drop = drop
         self.description = description
         self.required = required
         self.default = default
         self._name: Optional[str] = None
+        self._args: Optional[Tuple[Any, ...]] = args
+        self._kwargs: Optional[dict[str, Any]] = kwargs
     
     dtype: Literal["numeric", "categorical", "text", "derived"]
     """Feature data type."""
+
+    data_type: Optional[type]
+    """Optional Python type for runtime data enforcement (e.g. float, int, str)."""
 
     transformer: Optional[Any]
     """Sklearn-compatible transformer for numeric features."""
@@ -156,8 +184,15 @@ class Feature:
     source_columns: Optional[list[str]]
     """List of input column names for derived features."""
 
-    derived_feature_fn: Optional[Callable]
-    """Custom function for feature engineering."""
+    @property
+    def derived_feature_fn(self) -> Optional[Callable]:
+        """Custom function for feature engineering."""
+        return self._derived_feature_fn
+
+    @derived_feature_fn.setter
+    def derived_feature_fn(self, value: Optional[Callable]) -> None:
+        """Set the derived feature function."""
+        self._derived_feature_fn = value
 
     drop: bool
     """If True, exclude feature from final output."""
@@ -176,6 +211,38 @@ class Feature:
         self._name = name
         if self.source_column is None and self.source_columns is None:
             self.source_column = name
+
+    def _bind_derived_fn(
+        self,
+        fn: Optional[Callable],
+        args: Optional[Tuple[Any, ...]],
+        kwargs: Optional[dict[str, Any]],
+    ) -> None:
+        """Bind extra args/kwargs to derived_feature_fn.
+
+        If ``args`` or ``kwargs`` are provided alongside a callable, wrap the
+        callable in a closure that accepts only ``df`` as its argument and
+        forwards it as the first positional argument, followed by the bound
+        ``args`` and ``kwargs``.  This allows the SDK to continue calling
+        ``self.derived_feature_fn(df)`` without any invocation-site changes.
+
+        Args:
+            fn: The original derived feature function (may be None).
+            args: Positional arguments to bind (applied after ``df``).
+            kwargs: Keyword arguments to bind.
+        """
+        if fn is None:
+            self._derived_feature_fn = None
+        elif args or kwargs:
+            _args = args or ()
+            _kwargs = kwargs or {}
+
+            def _wrapper(df):
+                return fn(df, *_args, **_kwargs)
+
+            self._derived_feature_fn = _wrapper
+        else:
+            self._derived_feature_fn = fn
 
     @property
     def name(self) -> str:
@@ -202,7 +269,7 @@ class Feature:
     @property
     def has_derived_fn(self) -> bool:
         """Check if feature has a derived feature function."""
-        return self.derived_feature_fn is not None
+        return self._derived_feature_fn is not None
 
     @property
     def is_derived(self) -> bool:
@@ -283,6 +350,10 @@ class Feature:
         extras = []
         if self.has_derived_fn:
             extras.append("derived_feature_fn")
+            if self._args or self._kwargs:
+                extras.append(f"args={self._args}")
+                if self._kwargs:
+                    extras.append(f"kwargs={self._kwargs}")
         if self.source_columns:
             extras.append(f"inputs={self.source_columns}")
         if self.has_transformer:
@@ -293,5 +364,94 @@ class Feature:
             extras.append(f"required={self.required}")
         if self.default is not None:
             extras.append(f"default={self.default}")
+        if self.data_type is not None:
+            extras.append(f"data_type={self.data_type.__name__}")
         extra_str = f", {', '.join(extras)}" if extras else ""
         return f"Feature({self.name}, dtype={self.dtype}{extra_str})"
+    def _data_type_matches(self, data) -> bool:
+        """Check whether data's actual type matches the declared data_type.
+
+        Maps pandas/numpy dtypes to Python types for comparison.
+
+        Args:
+            data: pandas Series, numpy array, or Python iterable.
+
+        Returns:
+            True if the data's type matches the declared data_type, False otherwise.
+        """
+        if self.data_type is None:
+            return True
+
+        if hasattr(data, "dtype"):
+            dtype_str = str(data.dtype)
+            if dtype_str.startswith("float"):
+                return self.data_type == float
+            elif dtype_str.startswith("int"):
+                return self.data_type == int
+            elif dtype_str == "object":
+                return self.data_type == str
+            elif dtype_str == "category":
+                return self.data_type == str
+            else:
+                return self.data_type == data.dtype
+        else:
+            return type(data) == self.data_type
+
+    def _validate_and_coerce(self, data) -> Any:
+        """Validate and coerce data to the declared data_type.
+
+        Behavior:
+            - If data_type is None (default): no-op, return data unchanged.
+            - If data already matches data_type: no-op, return data unchanged.
+            - If data is coercible: coerce and emit a logging.warning.
+            - If data is not coercible: raise a TypeError.
+
+        Args:
+            data: pandas Series, numpy array, or Python iterable.
+
+        Returns:
+            The (possibly coerced) data.
+
+        Raises:
+            TypeError: If data cannot be coerced to the declared data_type.
+        """
+        if self.data_type is None:
+            return data
+
+        # If data already matches the declared type, no coercion needed
+        if self._data_type_matches(data):
+            return data
+
+        # Attempt coercion
+        actual_type = self._get_actual_type(data)
+        try:
+            if hasattr(data, "dtype"):
+                # pandas Series or numpy array
+                data = data.astype(self.data_type)
+            else:
+                # Python list or other iterable
+                data = [self.data_type(d) for d in data]
+        except (TypeError, ValueError, AttributeError) as e:
+            raise TypeError(
+                f"Feature '{self.name}': expected {self._format_type(self.data_type)}, received {actual_type} and could not coerce"
+            ) from e
+
+        # Coercion succeeded — emit warning
+        logger.warning(
+            f"Feature '{self.name}': coerced data from {actual_type} to {self._format_type(self.data_type)}"
+        )
+        return data
+
+    @staticmethod
+    def _get_actual_type(data) -> str:
+        """Get a string representation of data's actual type."""
+        if hasattr(data, "dtype"):
+            return str(data.dtype)
+        return type(data).__name__
+
+    @staticmethod
+    def _format_type(t) -> str:
+        """Format a type for display in error/warning messages."""
+        if hasattr(t, "__name__"):
+            return t.__name__
+        return str(t)
